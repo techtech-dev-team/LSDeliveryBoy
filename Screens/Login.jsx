@@ -1,21 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    Alert,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 const Login = ({ navigation }) => {
   const [formData, setFormData] = useState({
-    username: '',
+    phoneNumber: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({

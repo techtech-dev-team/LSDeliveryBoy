@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import BottomNavigation from './Navigation/BottomNavigation';
 import Camera from './Screens/Camera';
 import Login from './Screens/Login';
+import Maps from './Screens/Maps';
 import Register from './Screens/Register';
 import { colors } from './components/colors';
 
@@ -25,6 +26,7 @@ const App = () => {
         <Stack.Screen name="Register" component={Register} />
         <Stack.Screen name="MainApp" component={BottomNavigation} />
         <Stack.Screen name="Camera" component={Camera} />
+        <Stack.Screen name="Maps" component={Maps} />
       </Stack.Navigator>
     </NavigationContainer>
   );

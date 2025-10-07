@@ -1,62 +1,73 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import * as Notifications from 'expo-notifications';
+import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { colors } from '../components/colors';
+import { DashboardAPI, DashboardDataTransformer } from '../Utils/Dashboard';
+
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 const Dashboard = ({ navigation }) => {
+  // Loading and error states
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // Dashboard states
   const [isOnline, setIsOnline] = useState(false);
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [notifications, setNotifications] = useState(3); // Badge count
+  const [notifications, setNotifications] = useState(0); // Badge count
   const [showNotifications, setShowNotifications] = useState(false);
-
-  // Sample delivery data
-  const [deliveries, setDeliveries] = useState([
-    {
-      id: 'ORD001',
-      customerName: 'Rahul Sharma',
-      customerPhone: '+91 9876543210',
-      address: 'Shop No. 15, MG Road, Sector 14, Gurgaon',
-      items: ['2x Samosa', '1x Chai', '3x Biscuits'],
-      amount: '₹85',
-      status: 'assigned', // assigned, picked_up, out_for_delivery, delivered
-      distance: '2.3 km',
-      estimatedTime: '15 mins'
-    },
-    {
-      id: 'ORD002',
-      customerName: 'Priya Singh',
-      customerPhone: '+91 9123456789',
-      address: 'A-201, Green Valley Apartments, Sector 12',
-      items: ['1x Tea', '4x Parle-G', '1x Maggi'],
-      amount: '₹45',
-      status: 'picked_up',
-      distance: '1.8 km',
-      estimatedTime: '12 mins'
-    },
-    {
-      id: 'ORD003',
-      customerName: 'Amit Kumar',
-      customerPhone: '+91 9988776655',
-      address: 'Office Complex, Block B, Cyber City',
-      items: ['3x Coffee', '2x Sandwich'],
-      amount: '₹120',
-      status: 'out_for_delivery',
-      distance: '3.1 km',
-      estimatedTime: '20 mins'
+  const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
+  const [selectedDelivery, setSelectedDelivery] = useState(null);
+  
+  // API Data states
+  const [dashboardStats, setDashboardStats] = useState({
+    todayStats: {
+      totalOrders: 0,
+      completedOrders: 0,
+      earnings: 0
     }
-  ]);
+  });
+  const [deliveries, setDeliveries] = useState([]);
+  
+  // Delivery Boy Type Management
+  const [deliveryBoyType, setDeliveryBoyType] = useState('lalaji_store'); // 'lalaji_store' or 'vendor_managed'
+  const [assignedVendor, setAssignedVendor] = useState({
+    id: 'VENDOR001',
+    name: 'Sharma General Store',
+    location: 'Sector 15, Gurgaon'
+  }); // For vendor-managed delivery boys
+  const [deliveryBoyInfo, setDeliveryBoyInfo] = useState({
+    id: 'DB001',
+    name: 'Raj Kumar',
+    phone: '+91 9876543210',
+    isVerified: true,
+    approvalStatus: 'approved' // 'pending', 'approved', 'rejected'
+  });
+
+
 
   const issueTypes = [
     'Order Not Found',
@@ -67,47 +78,279 @@ const Dashboard = ({ navigation }) => {
     'Other Issue'
   ];
 
-  const notificationsList = [
-    'New delivery assigned: Order #ORD004',
-    'Order #ORD001 pickup reminder',
-    'Daily earnings updated: ₹450'
-  ];
+  // Notifications state
+  const [notificationsList, setNotificationsList] = useState([]);
 
-  const handleAvailabilityToggle = () => {
-    setIsOnline(!isOnline);
-    Alert.alert(
-      'Status Updated',
-      `You are now ${!isOnline ? 'online' : 'offline'}`,
-      [{ text: 'OK' }]
-    );
+  // Filter deliveries based on delivery boy type
+  const getFilteredDeliveries = () => {
+    return deliveries.filter(delivery => {
+      if (deliveryBoyType === 'lalaji_store') {
+        return delivery.assignedBy === 'system' && delivery.orderType === 'lalaji_store';
+      } else if (deliveryBoyType === 'vendor_managed') {
+        return delivery.assignedBy === 'vendor' && 
+               delivery.assignedVendor === assignedVendor?.id &&
+               delivery.orderType === 'vendor_managed';
+      }
+      return false;
+    });
   };
 
-  const handleStatusUpdate = (orderId, newStatus) => {
-    setDeliveries(prev => 
-      prev.map(delivery => 
-        delivery.id === orderId 
-          ? { ...delivery, status: newStatus }
-          : delivery
-      )
-    );
+  const filteredDeliveries = getFilteredDeliveries();
 
-    const statusMessages = {
-      picked_up: 'Order marked as picked up',
-      out_for_delivery: 'Order is now out for delivery',
-      delivered: 'Order marked as delivered'
+  // API Integration Functions
+  const loadDashboardData = async (showLoader = true) => {
+    try {
+      if (showLoader) setLoading(true);
+      setError(null);
+
+      const response = await DashboardAPI.getDashboard();
+      
+      if (response.success) {
+        const transformedData = DashboardDataTransformer.transformDashboardStats(response.data);
+        
+        // Update dashboard stats
+        setDashboardStats(transformedData.todayStats);
+        
+        // Update deliveries
+        setDeliveries(transformedData.pendingOrders);
+        
+        // Update online status
+        setIsOnline(transformedData.currentStatus === 'online');
+        
+        // Load notifications
+        loadNotifications();
+        
+      } else {
+        setError(response.error);
+        Alert.alert('Error', response.error);
+      }
+    } catch (error) {
+      console.error('Dashboard load error:', error);
+      setError('Failed to load dashboard data');
+      Alert.alert('Error', 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const response = await DashboardAPI.getNotifications();
+      if (response.success) {
+        setNotificationsList(response.data);
+        const unreadCount = response.data.filter(n => !n.isRead).length;
+        setNotifications(unreadCount);
+      }
+    } catch (error) {
+      console.error('Notifications load error:', error);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadDashboardData(false);
+  };
+
+  // Initialize dashboard data
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  // Push notification setup and handlers
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+    
+    // Listen for notifications when app is in foreground
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      handleNewNotification(notification);
+    });
+
+    // Listen for notification responses (when user taps notification)
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      handleNotificationResponse(response);
+    });
+
+    return () => {
+      Notifications.removeNotificationSubscription(notificationListener);
+      Notifications.removeNotificationSubscription(responseListener);
+    };
+  }, []);
+
+  const registerForPushNotificationsAsync = async () => {
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        Alert.alert('Permission Required', 'Push notifications are needed for delivery assignments');
+        return;
+      }
+    } catch (error) {
+      console.log('Error setting up notifications:', error);
+    }
+  };
+
+  const handleNewNotification = (notification) => {
+    const { title, body, data } = notification.request.content;
+    
+    // Add to notifications list
+    const newNotification = {
+      id: `NOTIF_${Date.now()}`,
+      type: data?.type || 'general',
+      title: title || 'New Notification',
+      message: body || '',
+      timestamp: new Date(),
+      isRead: false,
+      orderId: data?.orderId
+    };
+    
+    setNotificationsList(prev => [newNotification, ...prev]);
+    setNotifications(prev => prev + 1);
+    
+    // Handle delivery-specific notifications
+    if (data?.type === 'new_delivery' && data?.delivery) {
+      setDeliveries(prev => [...prev, data.delivery]);
+    }
+  };
+
+  const handleNotificationResponse = (response) => {
+    const { data } = response.notification.request.content;
+    
+    if (data?.type === 'new_delivery' && data?.orderId) {
+      // Navigate to specific delivery or open delivery details
+      const delivery = filteredDeliveries.find(d => d.id === data.orderId);
+      if (delivery) {
+        setSelectedDelivery(delivery);
+        setShowDeliveryDetails(true);
+      }
+    }
+  };
+
+  const simulateNewDeliveryAssignment = async () => {
+    const newDelivery = {
+      id: `ORD${Date.now()}`,
+      customerName: 'Test Customer',
+      customerPhone: '+91 9876543210',
+      address: 'Test Address, Sector 10, Gurgaon',
+      items: ['1x Test Item'],
+      amount: '₹50',
+      status: 'assigned',
+      distance: '1.2 km',
+      estimatedTime: '8 mins',
+      assignedBy: deliveryBoyType === 'lalaji_store' ? 'system' : 'vendor',
+      assignedVendor: deliveryBoyType === 'vendor_managed' ? assignedVendor?.id : null,
+      orderType: deliveryBoyType,
+      priority: 'normal'
     };
 
-    Alert.alert('Status Updated', statusMessages[newStatus]);
+    // Send push notification
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'New Delivery Assignment! 🚚',
+        body: deliveryBoyType === 'lalaji_store' 
+          ? `System assigned order ${newDelivery.id}` 
+          : `${assignedVendor?.name} assigned order ${newDelivery.id}`,
+        data: {
+          type: 'new_delivery',
+          orderId: newDelivery.id,
+          delivery: newDelivery
+        },
+      },
+      trigger: { seconds: 1 },
+    });
   };
 
-  const handleReportIssue = (orderId, issue) => {
-    Alert.alert(
-      'Issue Reported',
-      `Issue "${issue}" reported for order ${orderId}`,
-      [{ text: 'OK' }]
-    );
+  const handleAvailabilityToggle = async () => {
+    try {
+      const newStatus = !isOnline ? 'online' : 'offline';
+      const response = await DashboardAPI.updateAvailability(newStatus);
+      
+      if (response.success) {
+        setIsOnline(!isOnline);
+        Alert.alert(
+          'Status Updated',
+          `You are now ${newStatus}`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', response.error);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update availability status');
+    }
+  };
+
+  const handleStatusUpdate = async (orderId, newStatus) => {
+    try {
+      const response = await DashboardAPI.updateOrderStatus(orderId, newStatus);
+      
+      if (response.success) {
+        // Update local state
+        setDeliveries(prev => 
+          prev.map(delivery => 
+            delivery.id === orderId 
+              ? { ...delivery, status: newStatus }
+              : delivery
+          )
+        );
+
+        const statusMessages = {
+          picked_up: 'Order marked as picked up',
+          out_for_delivery: 'Order is now out for delivery',
+          delivered: 'Order marked as delivered'
+        };
+
+        Alert.alert('Status Updated', statusMessages[newStatus]);
+        
+        // Refresh dashboard data to get updated stats
+        loadDashboardData(false);
+      } else {
+        Alert.alert('Error', response.error);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update order status');
+    }
+  };
+
+  const handleReportIssue = async (orderId, issue) => {
+    try {
+      const response = await DashboardAPI.reportIssue(orderId, issue);
+      
+      if (response.success) {
+        Alert.alert(
+          'Issue Reported',
+          `Issue "${issue}" reported for order ${orderId}`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', response.error);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to report issue');
+    }
+    
     setShowIssueModal(false);
     setSelectedOrder(null);
+  };
+
+  const handleDeliveryCardPress = (delivery) => {
+    setSelectedDelivery(delivery);
+    setShowDeliveryDetails(true);
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'assignment': return 'bicycle-outline';
+      case 'reminder': return 'time-outline';
+      case 'earnings': return 'cash-outline';
+      default: return 'notifications-outline';
+    }
   };
 
   const getStatusColor = (status) => {
@@ -131,7 +374,11 @@ const Dashboard = ({ navigation }) => {
   };
 
   const renderDeliveryCard = ({ item }) => (
-    <View style={styles.deliveryCard}>
+    <TouchableOpacity 
+      style={styles.deliveryCard}
+      onPress={() => handleDeliveryCardPress(item)}
+      activeOpacity={0.7}
+    >
       {/* Order Header */}
       <View style={styles.cardHeader}>
         <View style={styles.orderInfo}>
@@ -232,8 +479,18 @@ const Dashboard = ({ navigation }) => {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
+
+  // Loading state
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary.yellow2} />
+        <Text style={styles.loadingText}>Loading Dashboard...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -243,7 +500,22 @@ const Dashboard = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting}>Good Morning,</Text>
-          <Text style={styles.driverName}>Delivery Partner</Text>
+          <Text style={styles.driverName}>{deliveryBoyInfo.name}</Text>
+          <View style={styles.deliveryBoyBadge}>
+            <View style={styles.badgeContent}>
+              <Ionicons 
+                name={deliveryBoyType === 'lalaji_store' ? 'storefront' : 'business'} 
+                size={12} 
+                color={colors.primary.yellow2} 
+              />
+              <Text style={styles.badgeText}>
+                {deliveryBoyType === 'lalaji_store' ? 'Lalaji Store' : assignedVendor?.name}
+              </Text>
+            </View>
+            {deliveryBoyInfo.isVerified && (
+              <Ionicons name="checkmark-circle" size={14} color={colors.primary.yellow2} />
+            )}
+          </View>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity 
@@ -287,19 +559,57 @@ const Dashboard = ({ navigation }) => {
         />
       </View>
 
+      {/* Today's Stats */}
+      <View style={styles.statsSection}>
+        <Text style={styles.statsTitle}>Today's Summary</Text>
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <Ionicons name="bicycle-outline" size={24} color={colors.primary.yellow2} />
+            <Text style={styles.statNumber}>{dashboardStats.todayStats.totalOrders}</Text>
+            <Text style={styles.statLabel}>Total Orders</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="checkmark-circle-outline" size={24} color={colors.primary.yellow2} />
+            <Text style={styles.statNumber}>{dashboardStats.todayStats.completedOrders}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="cash-outline" size={24} color={colors.primary.yellow2} />
+            <Text style={styles.statNumber}>₹{dashboardStats.todayStats.earnings}</Text>
+            <Text style={styles.statLabel}>Earnings</Text>
+          </View>
+        </View>
+      </View>
+
       {/* Deliveries Section */}
       <View style={styles.deliveriesSection}>
-        <Text style={styles.sectionTitle}>
-          Assigned Deliveries ({deliveries.length})
-        </Text>
+        <View style={styles.deliveriesHeader}>
+          <Text style={styles.sectionTitle}>
+            {deliveryBoyType === 'lalaji_store' ? 'System Assigned' : 'Vendor Assigned'} Deliveries ({filteredDeliveries.length})
+          </Text>
+          <TouchableOpacity 
+            style={styles.testButton}
+            onPress={simulateNewDeliveryAssignment}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={colors.primary.yellow2} />
+          </TouchableOpacity>
+        </View>
         
-        {deliveries.length > 0 ? (
+        {filteredDeliveries.length > 0 ? (
           <FlatList
-            data={deliveries}
+            data={filteredDeliveries}
             renderItem={renderDeliveryCard}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.deliveriesList}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary.yellow2]}
+                tintColor={colors.primary.yellow2}
+              />
+            }
           />
         ) : (
           <View style={styles.emptyState}>
@@ -366,10 +676,40 @@ const Dashboard = ({ navigation }) => {
 
             <ScrollView style={styles.notificationsList}>
               {notificationsList.map((notification, index) => (
-                <View key={index} style={styles.notificationItem}>
-                  <View style={styles.notificationDot} />
-                  <Text style={styles.notificationText}>{notification}</Text>
-                </View>
+                <TouchableOpacity 
+                  key={notification.id || index} 
+                  style={[
+                    styles.notificationItem,
+                    !notification.isRead && styles.unreadNotification
+                  ]}
+                  onPress={() => {
+                    if (notification.orderId) {
+                      const delivery = filteredDeliveries.find(d => d.id === notification.orderId);
+                      if (delivery) {
+                        setSelectedDelivery(delivery);
+                        setShowDeliveryDetails(true);
+                        setShowNotifications(false);
+                      }
+                    }
+                  }}
+                >
+                  <View style={[
+                    styles.notificationDot,
+                    { backgroundColor: notification.isRead ? colors.neutrals.gray : colors.primary.yellow2 }
+                  ]} />
+                  <View style={styles.notificationContent}>
+                    <Text style={styles.notificationTitle}>{notification.title}</Text>
+                    <Text style={styles.notificationText}>{notification.message}</Text>
+                    <Text style={styles.notificationTime}>
+                      {notification.timestamp?.toLocaleTimeString() || 'Now'}
+                    </Text>
+                  </View>
+                  <Ionicons 
+                    name={getNotificationIcon(notification.type)} 
+                    size={16} 
+                    color={colors.neutrals.gray} 
+                  />
+                </TouchableOpacity>
               ))}
             </ScrollView>
 
@@ -385,6 +725,180 @@ const Dashboard = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Delivery Details Modal */}
+      <Modal
+        visible={showDeliveryDetails}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDeliveryDetails(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.detailsModalContent}>
+            {selectedDelivery && (
+              <>
+                {/* Modal Header */}
+                <View style={styles.detailsHeader}>
+                  <TouchableOpacity 
+                    onPress={() => setShowDeliveryDetails(false)}
+                    style={styles.closeButton}
+                  >
+                    <Ionicons name="close" size={24} color={colors.neutrals.gray} />
+                  </TouchableOpacity>
+                  <View style={styles.headerInfo}>
+                    <Text style={styles.detailsTitle}>{selectedDelivery.id}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedDelivery.status) }]}>
+                      <Text style={styles.statusText}>{getStatusText(selectedDelivery.status)}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.detailsAmount}>{selectedDelivery.amount}</Text>
+                </View>
+
+                {/* Customer Details */}
+                <View style={styles.detailsSection}>
+                  <Text style={styles.sectionLabel}>Customer Information</Text>
+                  <View style={styles.customerDetails}>
+                    <View style={styles.customerRow}>
+                      <View style={styles.customerIcon}>
+                        <Ionicons name="person" size={20} color={colors.primary.yellow2} />
+                      </View>
+                      <View style={styles.customerText}>
+                        <Text style={styles.customerDetailName}>{selectedDelivery.customerName}</Text>
+                        <TouchableOpacity style={styles.phoneRow}>
+                          <Ionicons name="call" size={16} color={colors.neutrals.gray} />
+                          <Text style={styles.phoneNumber}>{selectedDelivery.customerPhone}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Delivery Address */}
+                <View style={styles.detailsSection}>
+                  <Text style={styles.sectionLabel}>Delivery Address</Text>
+                  <View style={styles.addressDetails}>
+                    <Ionicons name="location" size={20} color={colors.primary.yellow2} />
+                    <Text style={styles.addressDetailText}>{selectedDelivery.address}</Text>
+                  </View>
+                </View>
+
+                {/* Order Items */}
+                <View style={styles.detailsSection}>
+                  <Text style={styles.sectionLabel}>Order Items</Text>
+                  <View style={styles.itemsDetails}>
+                    {selectedDelivery.items.map((item, index) => (
+                      <View key={index} style={styles.itemRow}>
+                        <View style={styles.itemDot} />
+                        <Text style={styles.itemText}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Delivery Info */}
+                <View style={styles.detailsSection}>
+                  <Text style={styles.sectionLabel}>Delivery Information</Text>
+                  <View style={styles.deliveryInfo}>
+                    <View style={styles.infoRow}>
+                      <View style={styles.infoIcon}>
+                        <Ionicons name="navigate" size={16} color={colors.neutrals.gray} />
+                      </View>
+                      <Text style={styles.infoLabel}>Distance:</Text>
+                      <Text style={styles.infoValue}>{selectedDelivery.distance}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <View style={styles.infoIcon}>
+                        <Ionicons name="time" size={16} color={colors.neutrals.gray} />
+                      </View>
+                      <Text style={styles.infoLabel}>Estimated Time:</Text>
+                      <Text style={styles.infoValue}>{selectedDelivery.estimatedTime}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.detailsActions}>
+                  {selectedDelivery.status === 'assigned' && (
+                    <TouchableOpacity 
+                      style={[styles.detailsActionBtn, styles.primaryBtn]}
+                      onPress={() => {
+                        handleStatusUpdate(selectedDelivery.id, 'picked_up');
+                        setShowDeliveryDetails(false);
+                      }}
+                    >
+                      <Text style={styles.actionBtnText}>Mark as Picked Up</Text>
+                    </TouchableOpacity>
+                  )}
+                  
+                  {selectedDelivery.status === 'picked_up' && (
+                    <TouchableOpacity 
+                      style={[styles.detailsActionBtn, styles.primaryBtn]}
+                      onPress={() => {
+                        handleStatusUpdate(selectedDelivery.id, 'out_for_delivery');
+                        setShowDeliveryDetails(false);
+                      }}
+                    >
+                      <Text style={styles.actionBtnText}>Start Delivery</Text>
+                    </TouchableOpacity>
+                  )}
+                  
+                  {selectedDelivery.status === 'out_for_delivery' && (
+                    <>
+                      <TouchableOpacity 
+                        style={[styles.detailsActionBtn, styles.cameraBtn]}
+                        onPress={() => {
+                          setShowDeliveryDetails(false);
+                          navigation.navigate('Camera', { 
+                            type: 'delivery-proof', 
+                            orderId: selectedDelivery.id 
+                          });
+                        }}
+                      >
+                        <Ionicons name="camera" size={18} color="white" />
+                        <Text style={styles.actionBtnText}>Take Delivery Photo</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.detailsActionBtn, styles.primaryBtn]}
+                        onPress={() => {
+                          handleStatusUpdate(selectedDelivery.id, 'delivered');
+                          setShowDeliveryDetails(false);
+                        }}
+                      >
+                        <Text style={styles.actionBtnText}>Mark as Delivered</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+
+                  <TouchableOpacity 
+                    style={[styles.detailsActionBtn, styles.mapActionBtn]}
+                    onPress={() => {
+                      setShowDeliveryDetails(false);
+                      navigation.navigate('Maps', { delivery: selectedDelivery });
+                    }}
+                  >
+                    <Ionicons name="map" size={18} color={colors.primary.yellow2} />
+                    <Text style={styles.mapActionText}>View on Map</Text>
+                  </TouchableOpacity>
+
+                  {selectedDelivery.status !== 'delivered' && (
+                    <TouchableOpacity 
+                      style={[styles.detailsActionBtn, styles.issueBtn]}
+                      onPress={() => {
+                        setSelectedOrder(selectedDelivery.id);
+                        setShowDeliveryDetails(false);
+                        setShowIssueModal(true);
+                      }}
+                    >
+                      <Ionicons name="warning" size={18} color={colors.neutrals.gray} />
+                      <Text style={styles.issueBtnText}>Report Issue</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -393,6 +907,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: colors.neutrals.gray,
+    fontWeight: '400',
   },
   header: {
     flexDirection: 'row',
@@ -482,17 +1008,84 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '400',
   },
+  statsSection: {
+    marginHorizontal: 32,
+    marginVertical: 16,
+  },
+  statsTitle: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.neutrals.dark,
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '300',
+    color: colors.neutrals.dark,
+    marginTop: 8,
+    marginBottom: 4,
+    letterSpacing: -0.5,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: colors.neutrals.gray,
+    textAlign: 'center',
+    fontWeight: '400',
+  },
+  deliveryBoyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.neutrals.lightGray,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: 8,
+    maxWidth: 200,
+  },
+  badgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  badgeText: {
+    fontSize: 11,
+    color: colors.neutrals.dark,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
   deliveriesSection: {
     flex: 1,
     paddingTop: 8,
+  },
+  deliveriesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '300',
     color: colors.neutrals.dark,
-    marginBottom: 20,
-    paddingHorizontal: 32,
     letterSpacing: -0.5,
+    flex: 1,
+  },
+  testButton: {
+    padding: 8,
   },
   deliveriesList: {
     paddingBottom: 32,
@@ -725,19 +1318,36 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
   },
+  unreadNotification: {
+    backgroundColor: colors.neutrals.lightGray + '30',
+  },
   notificationDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: colors.primary.yellow2,
     marginTop: 8,
     marginRight: 12,
   },
-  notificationText: {
+  notificationContent: {
+    flex: 1,
+  },
+  notificationTitle: {
     fontSize: 14,
     color: colors.neutrals.dark,
-    flex: 1,
-    lineHeight: 22,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  notificationText: {
+    fontSize: 13,
+    color: colors.neutrals.gray,
+    lineHeight: 18,
+    fontWeight: '400',
+    marginBottom: 4,
+  },
+  notificationTime: {
+    fontSize: 11,
+    color: colors.neutrals.gray,
     fontWeight: '400',
   },
   cancelButton: {
@@ -747,6 +1357,189 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     color: colors.neutrals.gray,
+    fontWeight: '400',
+  },
+  // Delivery Details Modal Styles
+  detailsModalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: 20,
+  },
+  detailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutrals.lightGray,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  headerInfo: {
+    flex: 1,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  detailsTitle: {
+    fontSize: 20,
+    fontWeight: '400',
+    color: colors.neutrals.dark,
+    letterSpacing: -0.5,
+  },
+  detailsAmount: {
+    fontSize: 20,
+    fontWeight: '300',
+    color: colors.neutrals.dark,
+    letterSpacing: -0.5,
+  },
+  detailsSection: {
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutrals.lightGray,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    color: colors.neutrals.gray,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 16,
+  },
+  customerDetails: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 16,
+    padding: 16,
+  },
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  customerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  customerText: {
+    flex: 1,
+  },
+  customerDetailName: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.neutrals.dark,
+    marginBottom: 4,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  phoneNumber: {
+    fontSize: 14,
+    color: colors.neutrals.gray,
+    fontWeight: '400',
+  },
+  addressDetails: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  addressDetailText: {
+    fontSize: 15,
+    color: colors.neutrals.dark,
+    lineHeight: 22,
+    flex: 1,
+    fontWeight: '400',
+  },
+  itemsDetails: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 16,
+    padding: 16,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  itemDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary.yellow2,
+    marginRight: 12,
+  },
+  itemText: {
+    fontSize: 15,
+    color: colors.neutrals.dark,
+    fontWeight: '400',
+  },
+  deliveryInfo: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 16,
+    padding: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoIcon: {
+    width: 24,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: colors.neutrals.gray,
+    fontWeight: '400',
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: colors.neutrals.dark,
+    fontWeight: '500',
+  },
+  detailsActions: {
+    padding: 24,
+    gap: 12,
+  },
+  detailsActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 8,
+  },
+  mapActionBtn: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: colors.primary.yellow2,
+  },
+  mapActionText: {
+    color: colors.primary.yellow2,
+    fontSize: 16,
+    fontWeight: '400',
+  },
+  issueBtn: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderWidth: 1,
+    borderColor: colors.neutrals.gray,
+  },
+  issueBtnText: {
+    color: colors.neutrals.gray,
+    fontSize: 16,
     fontWeight: '400',
   },
 });
