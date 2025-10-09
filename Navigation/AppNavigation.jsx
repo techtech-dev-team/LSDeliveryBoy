@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import BottomNavigation from './BottomNavigation';
 import Camera from '../Screens/Camera';
 import Login from '../Screens/Login';
 import Maps from '../Screens/Maps';
 import Register from '../Screens/Register';
+import BottomNavigation from './BottomNavigation';
 
 const AppNavigation = () => {
   const [currentScreen, setCurrentScreen] = useState('Login');
