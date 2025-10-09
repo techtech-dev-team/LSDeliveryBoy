@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { authAPI, formatLoginData } from '../utils/auth';
 
-const Login = ({ navigation }) => {
+const Login = ({ navigation, onLoginSuccess }) => {
   const [formData, setFormData] = useState({
     phoneNumber: '',
     password: ''
@@ -27,8 +27,8 @@ const Login = ({ navigation }) => {
   };
 
   const handleLogin = async () => {
-    if (!formData.phoneNumber.trim()) {
-      Alert.alert('Error', 'Please enter your phone number');
+    if (!formData.phoneNumber.trim() || formData.phoneNumber.length !== 10) {
+      Alert.alert('Error', 'Please enter a valid 10-digit phone number');
       return;
     }
     if (!formData.password.trim()) {
@@ -52,7 +52,12 @@ const Login = ({ navigation }) => {
           [
             { 
               text: 'OK', 
-              onPress: () => navigation.navigate('MainApp')
+              onPress: () => {
+                // Call the callback to update authentication state
+                if (onLoginSuccess) {
+                  onLoginSuccess();
+                }
+              }
             }
           ]
         );
@@ -107,10 +112,11 @@ const Login = ({ navigation }) => {
             <TextInput
               style={styles.textInput}
               value={formData.phoneNumber}
-              onChangeText={(text) => handleInputChange('phoneNumber', text)}
+              onChangeText={(text) => handleInputChange('phoneNumber', text.replace(/[^0-9]/g, ''))}
               placeholder="Phone Number"
               placeholderTextColor="#A0A0A0"
               keyboardType="phone-pad"
+              maxLength={10}
             />
           </View>
 

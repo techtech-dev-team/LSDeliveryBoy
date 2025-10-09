@@ -1,15 +1,43 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Camera from '../Screens/Camera';
 import Login from '../Screens/Login';
 import Maps from '../Screens/Maps';
 import Register from '../Screens/Register';
 import BottomNavigation from './BottomNavigation';
+import { authAPI } from '../utils/auth';
 
 const Stack = createNativeStackNavigator();
 
 const AppNavigation = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const authenticated = await authAPI.isAuthenticated();
+      setIsAuthenticated(authenticated);
+    } catch (error) {
+      console.error('Auth check error:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Create a custom Login component that can update auth state
+  const LoginWithAuth = (props) => (
+    <Login {...props} onLoginSuccess={() => setIsAuthenticated(true)} />
+  );
+
+  if (isLoading) {
+    // You can return a loading screen here
+    return null;
+  }
 
   return (
     <Stack.Navigator
@@ -22,7 +50,7 @@ const AppNavigation = () => {
       {!isAuthenticated ? (
         // Auth Stack
         <>
-          <Stack.Screen name="Login" component={Login} />
+          <Stack.Screen name="Login" component={LoginWithAuth} />
           <Stack.Screen name="Register" component={Register} />
         </>
       ) : (

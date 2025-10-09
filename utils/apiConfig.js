@@ -1,7 +1,7 @@
 // API Configuration
 export const API_CONFIG = {
   // Development/Local API URL
-  LOCAL_API_URL: 'http://localhost:5000/api',
+  LOCAL_API_URL: 'http://localhost:5001/api',
   
   // Production API URL (update this with your actual production URL)
   PRODUCTION_API_URL: 'https://your-production-api.com/api',
@@ -36,7 +36,7 @@ export const API_CONFIG = {
   ENDPOINTS: {
     AUTH: {
       REGISTER: '/auth/delivery-boy-register',
-      LOGIN: '/auth/login',
+      LOGIN: '/auth/delivery-boy-login',
       LOGOUT: '/auth/logout',
       VERIFY_TOKEN: '/auth/verify-firebase-token',
       REFRESH_TOKEN: '/auth/refresh-token',

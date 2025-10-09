@@ -18,14 +18,15 @@ export const authAPI = {
           body: JSON.stringify(userData),
         });
 
-        const data = await response.json();
-        
         if (!response.ok) {
-          const error = new Error(data.error || data.message || 'Registration failed');
-          error.details = data.details || [];
+          const errorData = await response.json();
+          const error = new Error(errorData.error || errorData.message || 'Registration failed');
+          error.details = errorData.details || [];
+          error.status = response.status;
           throw error;
         }
 
+        const data = await response.json();
         return data;
       };
 
@@ -51,7 +52,8 @@ export const authAPI = {
       return {
         success: false,
         error: error.message || 'Registration failed',
-        details: error.details || []
+        details: error.details || [],
+        status: error.status || 500
       };
     }
   },
@@ -59,8 +61,13 @@ export const authAPI = {
   // Login delivery boy
   loginDeliveryBoy: async (phoneNumber, password = null, firebaseToken = null) => {
     try {
+      // Format phone number with country code if not already present
+      const formattedPhoneNumber = phoneNumber.startsWith('+') 
+        ? phoneNumber 
+        : `+91${phoneNumber}`;
+
       const loginData = {
-        phoneNumber,
+        phoneNumber: formattedPhoneNumber,
         role: 'delivery_boy'
       };
 
@@ -299,19 +306,39 @@ export const authAPI = {
   }
 };
 
+// Helper function to clean data - removes null, undefined, empty strings
+const cleanData = (obj) => {
+  const cleaned = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== null && value !== undefined && value !== '') {
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        const cleanedNested = cleanData(value);
+        if (Object.keys(cleanedNested).length > 0) {
+          cleaned[key] = cleanedNested;
+        }
+      } else if (Array.isArray(value) && value.length > 0) {
+        cleaned[key] = value;
+      } else if (typeof value === 'string' && value.trim() !== '') {
+        cleaned[key] = value.trim();
+      } else if (typeof value !== 'string') {
+        cleaned[key] = value;
+      }
+    }
+  }
+  return cleaned;
+};
+
 // Helper function to format registration data
 export const formatRegistrationData = (formData) => {
-  return {
+  const baseData = {
     name: formData.fullName,
     phoneNumber: formData.phoneNumber,
-    email: formData.email || null,
     password: formData.verificationPassword || null,
     authMethod: formData.verificationPassword ? 'password' : 'otp',
-    firebaseToken: formData.firebaseToken || null,
+    firebaseToken: formData.firebaseToken || (formData.verificationPassword ? null : `mock_firebase_token_${formData.phoneNumber}_${Date.now()}`),
     deliveryBoyInfo: {
       personalInfo: {
         fullName: formData.fullName,
-        email: formData.email || null,
         mobileNumber: formData.phoneNumber,
         address: formData.address,
         emergencyContact: {
@@ -329,13 +356,8 @@ export const formatRegistrationData = (formData) => {
         type: formData.selectedVehicle?.toLowerCase() || 'motorcycle',
         vehicleNumber: formData.vehicleNumber
       },
-      bankDetails: {
-        accountNumber: formData.bankAccountNumber || null,
-        accountHolderName: formData.bankAccountHolderName || formData.fullName,
-        ifsc: formData.bankIFSC || null,
-        upiId: formData.upiId || null
-      },
-      deliveryPartner: 'lalaji_network',
+      bankDetails: {},
+      deliveryPartner: formData.deliveryPartner || 'lalaji_network',
       isAvailable: false,
       workingHours: {
         start: "09:00",
@@ -344,6 +366,29 @@ export const formatRegistrationData = (formData) => {
       serviceAreas: []
     }
   };
+
+  // Add email only if provided and valid
+  if (formData.email && formData.email.trim() !== '') {
+    baseData.email = formData.email.trim();
+    baseData.deliveryBoyInfo.personalInfo.email = formData.email.trim();
+  }
+
+  // Add bank details only if provided
+  if (formData.accountNumber && formData.accountNumber.trim() !== '') {
+    baseData.deliveryBoyInfo.bankDetails.accountNumber = formData.accountNumber.trim();
+  }
+  if (formData.accountHolderName && formData.accountHolderName.trim() !== '') {
+    baseData.deliveryBoyInfo.bankDetails.accountHolderName = formData.accountHolderName.trim();
+  }
+  if (formData.ifsc && formData.ifsc.trim() !== '') {
+    baseData.deliveryBoyInfo.bankDetails.ifsc = formData.ifsc.trim();
+  }
+  if (formData.upiId && formData.upiId.trim() !== '') {
+    baseData.deliveryBoyInfo.bankDetails.upiId = formData.upiId.trim();
+  }
+
+  // Clean the data to remove any empty/null values
+  return cleanData(baseData);
 };
 
 // Helper function to format login data

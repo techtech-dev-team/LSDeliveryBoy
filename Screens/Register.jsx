@@ -180,9 +180,11 @@ const Register = ({ navigation }) => {
       Alert.alert('Error', 'Please enter your full name (minimum 2 characters)');
       return false;
     }
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return false;
+    if (formData.email && formData.email.trim() !== '') {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+        Alert.alert('Error', 'Please enter a valid email address');
+        return false;
+      }
     }
     if (!formData.emergencyContact.trim() || formData.emergencyContact.length !== 10) {
       Alert.alert('Error', 'Please enter a valid 10-digit emergency contact number');
@@ -231,19 +233,51 @@ const Register = ({ navigation }) => {
   };
 
   const validateBankDetailsStep = () => {
-    if (formData.accountNumber && (formData.accountNumber.length < 9 || formData.accountNumber.length > 18)) {
-      Alert.alert('Error', 'Account number must be between 9 and 18 digits');
-      return false;
+    // Check if any bank details are provided
+    const hasAnyBankDetails = formData.accountNumber || formData.ifsc || formData.upiId || formData.accountHolderName;
+    
+    // If no bank details are provided, ask for confirmation
+    if (!hasAnyBankDetails) {
+      Alert.alert(
+        'Skip Bank Details?',
+        'You can add bank details later in your profile. Continue without bank details?',
+        [
+          {
+            text: 'Add Now',
+            style: 'cancel'
+          },
+          {
+            text: 'Skip',
+            onPress: () => {
+              // Allow skipping
+              handleRegistration();
+            }
+          }
+        ]
+      );
+      return false; // Don't proceed with normal flow
     }
-    if (formData.ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifsc)) {
+    
+    // Validate bank details if provided
+    if (formData.accountNumber && formData.accountNumber.trim() !== '') {
+      const accountNum = formData.accountNumber.replace(/[^0-9]/g, ''); // Remove non-numeric characters
+      if (accountNum.length < 9 || accountNum.length > 18) {
+        Alert.alert('Error', 'Account number must be between 9 and 18 digits');
+        return false;
+      }
+      // Update the form data with cleaned account number
+      handleInputChange('accountNumber', accountNum);
+    }
+    
+    if (formData.ifsc && formData.ifsc.trim() !== '' && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifsc)) {
       Alert.alert('Error', 'Please enter a valid IFSC code');
       return false;
     }
-    if (formData.upiId && !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/.test(formData.upiId)) {
+    if (formData.upiId && formData.upiId.trim() !== '' && !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/.test(formData.upiId)) {
       Alert.alert('Error', 'Please enter a valid UPI ID');
       return false;
     }
-    if (formData.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber)) {
+    if (formData.panNumber && formData.panNumber.trim() !== '' && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber)) {
       Alert.alert('Error', 'Please enter a valid PAN number');
       return false;
     }
@@ -331,18 +365,33 @@ const Register = ({ navigation }) => {
           ]
         );
       } else {
-        // Handle API error response
+        // Handle API error response with more detailed information
         let errorMessage = result.error || 'Registration failed';
+        
+        // Add status code information if available
+        if (result.status) {
+          errorMessage = `Error ${result.status}: ${errorMessage}`;
+        }
         
         // If there are validation details, show them
         if (result.details && result.details.length > 0) {
           const fieldErrors = result.details.map(detail => 
-            `${detail.field}: ${detail.message}`
+            `• ${detail.field}: ${detail.message}`
           ).join('\n');
-          errorMessage = `${errorMessage}\n\n${fieldErrors}`;
+          errorMessage = `${errorMessage}\n\nValidation Issues:\n${fieldErrors}`;
         }
         
-        Alert.alert('Registration Failed', errorMessage);
+        Alert.alert('Registration Failed', errorMessage, [
+          {
+            text: 'OK',
+            onPress: () => {
+              // If there are field validation errors, go back to step 1 to fix them
+              if (result.details && result.details.some(d => ['name', 'phoneNumber', 'authMethod', 'password', 'firebaseToken'].includes(d.field))) {
+                setCurrentStep(1);
+              }
+            }
+          }
+        ]);
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -674,10 +723,12 @@ const Register = ({ navigation }) => {
             <TextInput
               style={styles.compactInput}
               value={formData.email}
-              onChangeText={(text) => handleInputChange('email', text)}
+              onChangeText={(text) => handleInputChange('email', text.trim())}
               placeholder="Email (optional)"
               placeholderTextColor="#A0A0A0"
               keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
@@ -1251,7 +1302,14 @@ const Register = ({ navigation }) => {
     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.stepHeader}>
         <Text style={styles.stepTitle}>Bank Details</Text>
-        <Text style={styles.stepSubtitle}>Add your bank account for payments</Text>
+        <Text style={styles.stepSubtitle}>Add your bank account for payments (Optional)</Text>
+      </View>
+
+      <View style={styles.infoBox}>
+        <Ionicons name="information-circle-outline" size={20} color="#666" />
+        <Text style={styles.infoText}>
+          You can skip this step and add your bank details later in your profile settings.
+        </Text>
       </View>
 
       <View style={styles.formGroup}>
@@ -1259,9 +1317,10 @@ const Register = ({ navigation }) => {
         <TextInput
           style={styles.input}
           value={formData.accountHolderName}
-          onChangeText={(text) => handleInputChange('accountHolderName', text)}
+          onChangeText={(text) => handleInputChange('accountHolderName', text.trim())}
           placeholder="Enter account holder name"
           placeholderTextColor="#999"
+          autoCapitalize="words"
         />
       </View>
 
@@ -1284,10 +1343,11 @@ const Register = ({ navigation }) => {
         <TextInput
           style={styles.input}
           value={formData.ifsc}
-          onChangeText={(text) => handleInputChange('ifsc', text.toUpperCase())}
+          onChangeText={(text) => handleInputChange('ifsc', text.trim().toUpperCase())}
           placeholder="Enter IFSC code"
           placeholderTextColor="#999"
           autoCapitalize="characters"
+          autoCorrect={false}
           maxLength={11}
         />
       </View>
@@ -1297,10 +1357,12 @@ const Register = ({ navigation }) => {
         <TextInput
           style={styles.input}
           value={formData.upiId}
-          onChangeText={(text) => handleInputChange('upiId', text)}
+          onChangeText={(text) => handleInputChange('upiId', text.trim())}
           placeholder="Enter your UPI ID"
           placeholderTextColor="#999"
           keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
         />
       </View>
     </ScrollView>
@@ -1446,10 +1508,10 @@ const Register = ({ navigation }) => {
       </View>
 
       {/* Progress Indicator */}
-      {currentStep <= 4 && (
+      {currentStep <= 5 && (
         <View style={styles.progressContainer}>
           <View style={styles.progressDots}>
-            {[1, 2, 3, 4].map((step) => (
+            {[1, 2, 3, 4, 5].map((step) => (
               <View
                 key={step}
                 style={[
@@ -1465,23 +1527,48 @@ const Register = ({ navigation }) => {
       {renderStepContent()}
 
       {/* Next/Action Button */}
-      {currentStep <= 4 && (
+      {currentStep <= 5 && (
         <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[styles.nextButton, loading && styles.nextButtonDisabled]} 
-            onPress={handleNext}
-            disabled={loading}
-          >
-            <Text style={styles.nextButtonText}>
-              {loading && currentStep === 4 
-                ? 'Completing Registration...'
-                : currentStep === 1 
-                  ? (verificationMethod === 'otp' ? 'Send OTP' : 'Continue with Password')
-                  : currentStep === 2 ? 'Continue' 
-                  : currentStep === 3 ? 'Continue'
-                  : 'Complete Registration'}
-            </Text>
-          </TouchableOpacity>
+          {currentStep === 5 ? (
+            <>
+              <TouchableOpacity 
+                style={[styles.nextButton, loading && styles.nextButtonDisabled]} 
+                onPress={handleNext}
+                disabled={loading}
+              >
+                <Text style={styles.nextButtonText}>
+                  {loading ? 'Completing Registration...' : 'Complete Registration'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.nextButton, styles.skipButton]} 
+                onPress={handleRegistration}
+                disabled={loading}
+              >
+                <Text style={[styles.nextButtonText, styles.skipButtonText]}>
+                  Skip Bank Details
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity 
+              style={[styles.nextButton, loading && styles.nextButtonDisabled]} 
+              onPress={handleNext}
+              disabled={loading}
+            >
+              <Text style={styles.nextButtonText}>
+                {loading && currentStep === 5 
+                  ? 'Completing Registration...'
+                  : currentStep === 1 
+                    ? (verificationMethod === 'otp' ? 'Send OTP' : 'Continue with Password')
+                    : currentStep === 2 ? 'Continue' 
+                    : currentStep === 3 ? 'Continue'
+                    : currentStep === 4 ? 'Continue'
+                    : 'Complete Registration'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -1738,6 +1825,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '400',
     color: 'white',
+  },
+  skipButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  skipButtonText: {
+    color: '#666',
   },
   // Modal styles
   modalOverlay: {
