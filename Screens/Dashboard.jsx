@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,15 +15,6 @@ import {
   View
 } from 'react-native';
 import { colors } from '../components/colors';
-
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
 
 const Dashboard = ({ navigation }) => {
   // Loading and error states
@@ -218,81 +208,6 @@ const Dashboard = ({ navigation }) => {
     loadDashboardData();
   }, []);
 
-  // Push notification setup and handlers
-  useEffect(() => {
-    registerForPushNotificationsAsync();
-    
-    // Listen for notifications when app is in foreground
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      handleNewNotification(notification);
-    });
-
-    // Listen for notification responses (when user taps notification)
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      handleNotificationResponse(response);
-    });
-
-    return () => {
-      Notifications.removeNotificationSubscription(notificationListener);
-      Notifications.removeNotificationSubscription(responseListener);
-    };
-  }, []);
-
-  const registerForPushNotificationsAsync = async () => {
-    try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      
-      if (finalStatus !== 'granted') {
-        Alert.alert('Permission Required', 'Push notifications are needed for delivery assignments');
-        return;
-      }
-    } catch (error) {
-      console.log('Error setting up notifications:', error);
-    }
-  };
-
-  const handleNewNotification = (notification) => {
-    const { title, body, data } = notification.request.content;
-    
-    // Add to notifications list
-    const newNotification = {
-      id: `NOTIF_${Date.now()}`,
-      type: data?.type || 'general',
-      title: title || 'New Notification',
-      message: body || '',
-      timestamp: new Date(),
-      isRead: false,
-      orderId: data?.orderId
-    };
-    
-    setNotificationsList(prev => [newNotification, ...prev]);
-    setNotifications(prev => prev + 1);
-    
-    // Handle delivery-specific notifications
-    if (data?.type === 'new_delivery' && data?.delivery) {
-      setDeliveries(prev => [...prev, data.delivery]);
-    }
-  };
-
-  const handleNotificationResponse = (response) => {
-    const { data } = response.notification.request.content;
-    
-    if (data?.type === 'new_delivery' && data?.orderId) {
-      // Navigate to specific delivery or open delivery details
-      const delivery = filteredDeliveries.find(d => d.id === data.orderId);
-      if (delivery) {
-        setSelectedDelivery(delivery);
-        setShowDeliveryDetails(true);
-      }
-    }
-  };
-
   const simulateNewDeliveryAssignment = async () => {
     const newDelivery = {
       id: `ORD${Date.now()}`,
@@ -310,21 +225,8 @@ const Dashboard = ({ navigation }) => {
       priority: 'normal'
     };
 
-    // Send push notification
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'New Delivery Assignment! 🚚',
-        body: deliveryBoyType === 'lalaji_store' 
-          ? `System assigned order ${newDelivery.id}` 
-          : `${assignedVendor?.name} assigned order ${newDelivery.id}`,
-        data: {
-          type: 'new_delivery',
-          orderId: newDelivery.id,
-          delivery: newDelivery
-        },
-      },
-      trigger: { seconds: 1 },
-    });
+    // Add delivery to the list
+    setDeliveries(prev => [...prev, newDelivery]);
   };
 
   const handleAvailabilityToggle = async () => {

@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { authAPI, formatRegistrationData } from '../utils/auth';
 
 const Register = ({ navigation }) => {
   // Registration flow: 1: Phone, 2: Basic Info, 3: Documents, 4: Bank Details
@@ -35,12 +36,17 @@ const Register = ({ navigation }) => {
     // New fields for API compliance
     panNumber: '',
     aadharNumber: '',
+    licenseNumber: '',
     experienceYears: '0',
     experienceDescription: '',
     accountNumber: '',
     ifsc: '',
     upiId: '',
     accountHolderName: '',
+    bankName: '',
+    bankAccountHolderName: '',
+    bankAccountNumber: '',
+    bankIFSC: '',
     // Document uploads
     idProofUploaded: false,
     addressProofUploaded: false,
@@ -198,16 +204,49 @@ const Register = ({ navigation }) => {
   const handleRegistration = async () => {
     setLoading(true);
     
-    // Mock successful registration
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert('Success', 'Registration completed successfully!', [
-        {
-          text: 'Login',
-          onPress: () => navigation.navigate('Login')
+    try {
+      // Format the form data for the API
+      const registrationData = formatRegistrationData(formData);
+      
+      console.log('Submitting registration data:', registrationData);
+      
+      // Call the registration API
+      const result = await authAPI.registerDeliveryBoy(registrationData);
+      
+      if (result.success) {
+        Alert.alert(
+          'Success', 
+          result.message || 'Registration completed successfully!', 
+          [
+            {
+              text: 'Login',
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
+      } else {
+        // Handle API error response
+        let errorMessage = result.error || 'Registration failed';
+        
+        // If there are validation details, show them
+        if (result.details && result.details.length > 0) {
+          const fieldErrors = result.details.map(detail => 
+            `${detail.field}: ${detail.message}`
+          ).join('\n');
+          errorMessage = `${errorMessage}\n\n${fieldErrors}`;
         }
-      ]);
-    }, 1500); // Simulate API delay
+        
+        Alert.alert('Registration Failed', errorMessage);
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      Alert.alert(
+        'Error', 
+        'An unexpected error occurred during registration. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const requestPermissions = async () => {
@@ -793,13 +832,19 @@ const Register = ({ navigation }) => {
       {/* Next/Action Button */}
       {currentStep <= 4 && (
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+          <TouchableOpacity 
+            style={[styles.nextButton, loading && styles.nextButtonDisabled]} 
+            onPress={handleNext}
+            disabled={loading}
+          >
             <Text style={styles.nextButtonText}>
-              {currentStep === 1 
-                ? (verificationMethod === 'otp' ? 'Send OTP' : 'Continue with Password')
-                : currentStep === 2 ? 'Continue' 
-                : currentStep === 3 ? 'Continue'
-                : 'Complete Registration'}
+              {loading && currentStep === 4 
+                ? 'Completing Registration...'
+                : currentStep === 1 
+                  ? (verificationMethod === 'otp' ? 'Send OTP' : 'Continue with Password')
+                  : currentStep === 2 ? 'Continue' 
+                  : currentStep === 3 ? 'Continue'
+                  : 'Complete Registration'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1040,6 +1085,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 16,
+  },
+  nextButtonDisabled: {
+    backgroundColor: '#999',
+    opacity: 0.7,
   },
   homeButton: {
     backgroundColor: '#666',

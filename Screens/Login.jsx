@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { authAPI, formatLoginData } from '../utils/auth';
 
 const Login = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -25,9 +26,9 @@ const Login = ({ navigation }) => {
     }));
   };
 
-  const handleLogin = () => {
-    if (!formData.username.trim()) {
-      Alert.alert('Error', 'Please enter your username');
+  const handleLogin = async () => {
+    if (!formData.phoneNumber.trim()) {
+      Alert.alert('Error', 'Please enter your phone number');
       return;
     }
     if (!formData.password.trim()) {
@@ -35,10 +36,49 @@ const Login = ({ navigation }) => {
       return;
     }
     
-    // Simulate login process
-    Alert.alert('Success', 'Login successful!', [
-      { text: 'OK', onPress: () => navigation.navigate('MainApp') }
-    ]);
+    setLoading(true);
+    
+    try {
+      // Call the login API
+      const result = await authAPI.loginDeliveryBoy(
+        formData.phoneNumber, 
+        formData.password
+      );
+      
+      if (result.success) {
+        Alert.alert(
+          'Success', 
+          result.message || 'Login successful!', 
+          [
+            { 
+              text: 'OK', 
+              onPress: () => navigation.navigate('MainApp')
+            }
+          ]
+        );
+      } else {
+        // Handle API error response
+        let errorMessage = result.error || 'Login failed';
+        
+        // If there are validation details, show them
+        if (result.details && result.details.length > 0) {
+          const fieldErrors = result.details.map(detail => 
+            `${detail.field}: ${detail.message}`
+          ).join('\n');
+          errorMessage = `${errorMessage}\n\n${fieldErrors}`;
+        }
+        
+        Alert.alert('Login Failed', errorMessage);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert(
+        'Error', 
+        'An unexpected error occurred during login. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgotPassword = () => {
@@ -62,15 +102,15 @@ const Login = ({ navigation }) => {
 
         {/* Form Section */}
         <View style={styles.formContainer}>
-          {/* Username Input */}
+          {/* Phone Number Input */}
           <View style={styles.inputSection}>
             <TextInput
               style={styles.textInput}
-              value={formData.username}
-              onChangeText={(text) => handleInputChange('username', text)}
-              placeholder="Username"
+              value={formData.phoneNumber}
+              onChangeText={(text) => handleInputChange('phoneNumber', text)}
+              placeholder="Phone Number"
               placeholderTextColor="#A0A0A0"
-              autoCapitalize="none"
+              keyboardType="phone-pad"
             />
           </View>
 
@@ -104,8 +144,14 @@ const Login = ({ navigation }) => {
           </TouchableOpacity>
 
           {/* Login Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Sign In</Text>
+          <TouchableOpacity 
+            style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            <Text style={styles.loginButtonText}>
+              {loading ? 'Signing In...' : 'Sign In'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -199,6 +245,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
+  },
+  loginButtonDisabled: {
+    backgroundColor: '#999',
+    opacity: 0.7,
   },
   loginButtonText: {
     fontSize: 16,
