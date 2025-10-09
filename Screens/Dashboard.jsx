@@ -16,7 +16,6 @@ import {
   View
 } from 'react-native';
 import { colors } from '../components/colors';
-import { DashboardAPI, DashboardDataTransformer } from '../Utils/Dashboard';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -97,33 +96,67 @@ const Dashboard = ({ navigation }) => {
 
   const filteredDeliveries = getFilteredDeliveries();
 
-  // API Integration Functions
+  // Mock Data Functions
   const loadDashboardData = async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
       setError(null);
 
-      const response = await DashboardAPI.getDashboard();
+      // Mock dashboard stats
+      const mockStats = {
+        todayStats: {
+          totalOrders: 8,
+          completedOrders: 5,
+          earnings: 450
+        }
+      };
       
-      if (response.success) {
-        const transformedData = DashboardDataTransformer.transformDashboardStats(response.data);
+      // Mock deliveries data
+      const mockDeliveries = [
+        {
+          id: 'ORD001',
+          customerName: 'Rajesh Kumar',
+          customerPhone: '+91 9876543210',
+          address: 'Sector 15, Plot 123, Gurgaon, Haryana 122015',
+          items: ['2x Rice (1kg)', '1x Dal (500g)', '1x Oil (1L)'],
+          amount: '₹285',
+          status: 'assigned',
+          distance: '2.3 km',
+          estimatedTime: '12 mins',
+          assignedBy: deliveryBoyType === 'lalaji_store' ? 'system' : 'vendor',
+          assignedVendor: deliveryBoyType === 'vendor_managed' ? assignedVendor?.id : null,
+          orderType: deliveryBoyType,
+          priority: 'high'
+        },
+        {
+          id: 'ORD002',
+          customerName: 'Priya Sharma',
+          customerPhone: '+91 9123456789',
+          address: 'Golf Course Road, DLF Phase 2, Gurgaon',
+          items: ['1x Milk (1L)', '2x Bread', '1x Eggs (12pc)'],
+          amount: '₹180',
+          status: 'picked_up',
+          distance: '1.8 km',
+          estimatedTime: '8 mins',
+          assignedBy: deliveryBoyType === 'lalaji_store' ? 'system' : 'vendor',
+          assignedVendor: deliveryBoyType === 'vendor_managed' ? assignedVendor?.id : null,
+          orderType: deliveryBoyType,
+          priority: 'normal'
+        }
+      ];
+      
+      // Update dashboard stats
+      setDashboardStats(mockStats);
+      
+      // Update deliveries
+      setDeliveries(mockDeliveries);
+      
+      // Update online status (mock)
+      setIsOnline(true);
+      
+      // Load mock notifications
+      loadNotifications();
         
-        // Update dashboard stats
-        setDashboardStats(transformedData.todayStats);
-        
-        // Update deliveries
-        setDeliveries(transformedData.pendingOrders);
-        
-        // Update online status
-        setIsOnline(transformedData.currentStatus === 'online');
-        
-        // Load notifications
-        loadNotifications();
-        
-      } else {
-        setError(response.error);
-        Alert.alert('Error', response.error);
-      }
     } catch (error) {
       console.error('Dashboard load error:', error);
       setError('Failed to load dashboard data');
@@ -136,12 +169,40 @@ const Dashboard = ({ navigation }) => {
 
   const loadNotifications = async () => {
     try {
-      const response = await DashboardAPI.getNotifications();
-      if (response.success) {
-        setNotificationsList(response.data);
-        const unreadCount = response.data.filter(n => !n.isRead).length;
-        setNotifications(unreadCount);
-      }
+      // Mock notifications data
+      const mockNotifications = [
+        {
+          id: 'NOTIF_001',
+          type: 'assignment',
+          title: 'New Order Assigned',
+          message: 'You have been assigned order ORD001',
+          timestamp: new Date(),
+          isRead: false,
+          orderId: 'ORD001'
+        },
+        {
+          id: 'NOTIF_002',
+          type: 'earnings',
+          title: 'Payment Received',
+          message: 'You received ₹285 for order ORD999',
+          timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 mins ago
+          isRead: true,
+          orderId: null
+        },
+        {
+          id: 'NOTIF_003',
+          type: 'reminder',
+          title: 'Delivery Reminder',
+          message: 'Order ORD002 is ready for pickup',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
+          isRead: false,
+          orderId: 'ORD002'
+        }
+      ];
+      
+      setNotificationsList(mockNotifications);
+      const unreadCount = mockNotifications.filter(n => !n.isRead).length;
+      setNotifications(unreadCount);
     } catch (error) {
       console.error('Notifications load error:', error);
     }
@@ -269,18 +330,14 @@ const Dashboard = ({ navigation }) => {
   const handleAvailabilityToggle = async () => {
     try {
       const newStatus = !isOnline ? 'online' : 'offline';
-      const response = await DashboardAPI.updateAvailability(newStatus);
       
-      if (response.success) {
-        setIsOnline(!isOnline);
-        Alert.alert(
-          'Status Updated',
-          `You are now ${newStatus}`,
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert('Error', response.error);
-      }
+      // Mock successful status update
+      setIsOnline(!isOnline);
+      Alert.alert(
+        'Status Updated',
+        `You are now ${newStatus}`,
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       Alert.alert('Error', 'Failed to update availability status');
     }
@@ -288,30 +345,33 @@ const Dashboard = ({ navigation }) => {
 
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
-      const response = await DashboardAPI.updateOrderStatus(orderId, newStatus);
+      // Mock successful status update
+      // Update local state
+      setDeliveries(prev => 
+        prev.map(delivery => 
+          delivery.id === orderId 
+            ? { ...delivery, status: newStatus }
+            : delivery
+        )
+      );
+
+      const statusMessages = {
+        picked_up: 'Order marked as picked up',
+        out_for_delivery: 'Order is now out for delivery',
+        delivered: 'Order marked as delivered'
+      };
+
+      Alert.alert('Status Updated', statusMessages[newStatus]);
       
-      if (response.success) {
-        // Update local state
-        setDeliveries(prev => 
-          prev.map(delivery => 
-            delivery.id === orderId 
-              ? { ...delivery, status: newStatus }
-              : delivery
-          )
-        );
-
-        const statusMessages = {
-          picked_up: 'Order marked as picked up',
-          out_for_delivery: 'Order is now out for delivery',
-          delivered: 'Order marked as delivered'
-        };
-
-        Alert.alert('Status Updated', statusMessages[newStatus]);
-        
-        // Refresh dashboard data to get updated stats
-        loadDashboardData(false);
-      } else {
-        Alert.alert('Error', response.error);
+      // Update stats if delivered
+      if (newStatus === 'delivered') {
+        setDashboardStats(prev => ({
+          ...prev,
+          todayStats: {
+            ...prev.todayStats,
+            completedOrders: prev.todayStats.completedOrders + 1
+          }
+        }));
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to update order status');
@@ -320,17 +380,12 @@ const Dashboard = ({ navigation }) => {
 
   const handleReportIssue = async (orderId, issue) => {
     try {
-      const response = await DashboardAPI.reportIssue(orderId, issue);
-      
-      if (response.success) {
-        Alert.alert(
-          'Issue Reported',
-          `Issue "${issue}" reported for order ${orderId}`,
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert('Error', response.error);
-      }
+      // Mock successful issue report
+      Alert.alert(
+        'Issue Reported',
+        `Issue "${issue}" reported for order ${orderId}`,
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       Alert.alert('Error', 'Failed to report issue');
     }

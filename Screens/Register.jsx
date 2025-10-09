@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { RegisterAPI } from '../Utils/Register';
 
 const Register = ({ navigation }) => {
   // Registration flow: 1: Phone, 2: Basic Info, 3: Documents, 4: Bank Details
@@ -158,15 +157,11 @@ const Register = ({ navigation }) => {
       if (validatePhoneStep()) {
         if (verificationMethod === 'otp') {
           setLoading(true);
-          // Initiate Firebase phone verification
-          const result = await RegisterAPI.verifyPhoneWithFirebase(`+91${formData.phoneNumber}`);
-          setLoading(false);
-          
-          if (result.success) {
+          // Mock successful phone verification
+          setTimeout(() => {
+            setLoading(false);
             setShowOtpModal(true);
-          } else {
-            Alert.alert('Error', result.error);
-          }
+          }, 1000); // Simulate API delay
         } else {
           // Password verification - skip OTP and go directly to next step
           Alert.alert('Success', 'Phone number and password saved successfully!', [
@@ -203,28 +198,16 @@ const Register = ({ navigation }) => {
   const handleRegistration = async () => {
     setLoading(true);
     
-    let firebaseToken = null;
-    
-    // Only use Firebase token for OTP verification
-    if (verificationMethod === 'otp') {
-      // For demo purposes, using a mock Firebase token
-      // In production, this would come from Firebase Auth after OTP verification
-      firebaseToken = 'mock_firebase_token_' + Date.now();
-    }
-    
-    const result = await RegisterAPI.registerDeliveryBoy(formData, firebaseToken, verificationMethod);
-    setLoading(false);
-    
-    if (result.success) {
+    // Mock successful registration
+    setTimeout(() => {
+      setLoading(false);
       Alert.alert('Success', 'Registration completed successfully!', [
         {
           text: 'Login',
           onPress: () => navigation.navigate('Login')
         }
       ]);
-    } else {
-      Alert.alert('Error', result.error);
-    }
+    }, 1500); // Simulate API delay
   };
 
   const requestPermissions = async () => {
