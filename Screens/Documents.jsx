@@ -29,7 +29,7 @@ import {
   PencilIcon,
   PhotoIcon
 } from 'react-native-heroicons/outline';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -587,11 +587,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    
   },
   backButton: {
     padding: 8,
@@ -600,8 +596,8 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '500',
+    fontSize: typography.fontSize.xl,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     textAlign: 'center',
     marginRight: 40,
@@ -626,23 +622,24 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   infoTitle: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: typography.fontSize.base,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     marginBottom: 4,
   },
   infoDescription: {
-    fontSize: 12,
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.gray,
-    lineHeight: 16,
+    lineHeight: typography.lineHeight.lg,
   },
   section: {
     paddingHorizontal: 20,
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     marginBottom: 16,
   },
@@ -687,14 +684,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   documentTitle: {
-    fontSize: 15,
-    fontWeight: '400',
+    fontSize: typography.fontSize.base + 1,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.dark,
     marginRight: 8,
   },
   requiredBadge: {
-    fontSize: 10,
-    fontWeight: '500',
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamily.medium,
     color: '#FF6B6B',
     backgroundColor: '#FFE5E5',
     paddingHorizontal: 6,
@@ -702,7 +699,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   documentDescription: {
-    fontSize: 12,
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.gray,
     marginBottom: 6,
   },

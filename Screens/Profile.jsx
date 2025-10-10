@@ -338,19 +338,19 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 16,
+    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.gray,
-    fontWeight: '400',
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '500',
+    fontSize: typography.fontSize['2xl'],
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
-    letterSpacing: -0.3,
+    letterSpacing: typography.letterSpacing.tight,
   },
   profileCard: {
     flexDirection: 'row',
@@ -382,13 +382,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileName: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     marginBottom: 2,
   },
   profileId: {
-    fontSize: 12,
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.gray,
     marginBottom: 6,
   },
@@ -412,12 +413,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     marginBottom: 12,
     paddingHorizontal: 20,
-    letterSpacing: -0.3,
+    letterSpacing: typography.letterSpacing.tight,
   },
   menuItem: {
     flexDirection: 'row',
@@ -446,12 +447,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuTitle: {
-    fontSize: 15,
-    fontWeight: '400',
+    fontSize: typography.fontSize.base + 1,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.dark,
   },
   menuSubtitle: {
-    fontSize: 13,
+    fontSize: typography.fontSize.sm + 1,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.gray,
     marginTop: 2,
   },
@@ -466,8 +468,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logoutText: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.gray,
     marginLeft: 8,
   },
@@ -476,9 +478,9 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.gray,
-    fontWeight: '400',
   },
 });
 

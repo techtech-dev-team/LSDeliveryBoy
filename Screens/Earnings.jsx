@@ -174,8 +174,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   title: {
     fontSize: typography.fontSize['3xl'],
@@ -196,8 +196,8 @@ const styles = StyleSheet.create({
   },
   periodFilter: {
     flexDirection: 'row',
-    paddingHorizontal: 32,
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   periodTab: {
     flex: 1,
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   },
   totalCard: {
     backgroundColor: 'white',
-    marginHorizontal: 32,
+    marginHorizontal: 20,
     marginBottom: 24,
     borderRadius: 16,
     padding: 24,
@@ -243,8 +243,8 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
-    paddingHorizontal: 32,
-    marginBottom: 32,
+    paddingHorizontal: 20,
+    marginBottom: 20,
     gap: 12,
   },
   statCard: {
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     letterSpacing: typography.letterSpacing.tight,
   },
   recentSection: {
-    paddingHorizontal: 32,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
     fontSize: typography.fontSize.xl,

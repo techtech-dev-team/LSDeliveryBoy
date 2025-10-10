@@ -15,7 +15,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 import { dashboardAPI } from '../utils/dashboard';
 
 const Dashboard = ({ navigation }) => {
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: colors.neutrals.gray,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   header: {
     flexDirection: 'row',
@@ -970,12 +970,12 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 11,
     color: colors.neutrals.gray,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   driverName: {
     fontSize: 16,
     color: colors.neutrals.dark,
-    fontWeight: '600',
+    fontFamily: typography.fontFamily.bold,
     marginTop: 1,
     letterSpacing: -0.3,
   },
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     color: colors.neutrals.dark,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     marginLeft: 4,
   },
   mapButton: {
@@ -1022,7 +1022,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     color: 'white',
-    fontWeight: '600',
+    fontFamily: typography.fontFamily.bold,
   },
   availabilitySection: {
     flexDirection: 'row',
@@ -1052,14 +1052,14 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
   },
   statusSubtext: {
     fontSize: 12,
     color: colors.neutrals.gray,
     marginTop: 2,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   statsSection: {
     marginHorizontal: 20,
@@ -1067,7 +1067,7 @@ const styles = StyleSheet.create({
   },
   statsTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     marginBottom: 12,
     letterSpacing: -0.3,
@@ -1085,7 +1085,7 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutrals.dark,
     marginTop: 6,
     marginBottom: 2,
@@ -1094,7 +1094,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 11,
     color: colors.neutrals.gray,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
     textAlign: 'center',
   },
   deliveryBoyBadge: {
@@ -1125,7 +1125,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     letterSpacing: -0.3,
   },
@@ -1142,11 +1142,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.neutrals.lightGray,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1161,7 +1156,7 @@ const styles = StyleSheet.create({
   },
   orderId: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutrals.dark,
     marginRight: 8,
   },
@@ -1172,12 +1167,12 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     color: 'white',
   },
   amount: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutrals.dark,
   },
   customerSection: {
@@ -1194,7 +1189,7 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: 14,
     color: colors.neutrals.dark,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     marginLeft: 6,
   },
   phoneButton: {
@@ -1219,7 +1214,7 @@ const styles = StyleSheet.create({
   },
   itemsLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.gray,
     marginBottom: 4,
   },
@@ -1241,7 +1236,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.neutrals.gray,
     marginLeft: 4,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -1271,13 +1266,13 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     color: 'white',
     marginLeft: 4,
   },
   secondaryBtnText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.gray,
     marginLeft: 4,
   },
@@ -1288,7 +1283,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.gray,
     marginTop: 12,
   },
@@ -1318,7 +1313,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutrals.dark,
   },
   modalSubtitle: {
@@ -1335,7 +1330,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.gray,
   },
 });

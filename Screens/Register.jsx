@@ -18,6 +18,7 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import { authAPI, formatRegistrationData } from '../utils/auth';
+import { colors, typography } from '../components/colors';
 
 const Register = ({ navigation }) => {
   // Registration flow: 1: Phone, 2: Basic Info, 3: Location & Service Area, 4: Documents, 5: Bank Details
@@ -1602,7 +1603,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 16,
     color: '#666',
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   progressContainer: {
     paddingHorizontal: 24,
@@ -1638,7 +1639,7 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     fontSize: 28,
-    fontWeight: '300',
+    fontFamily: typography.fontFamily.regular,
     color: '#1a1a1a',
     textAlign: 'center',
     letterSpacing: -0.5,
@@ -1648,7 +1649,7 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 8,
     textAlign: 'center',
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   formContainer: {
     flex: 1,
@@ -1667,14 +1668,14 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
     paddingVertical: 16,
     paddingRight: 12,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   phoneInput: {
     flex: 1,
     fontSize: 16,
     color: '#1a1a1a',
     paddingVertical: 16,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   textInput: {
     fontSize: 16,
@@ -1683,7 +1684,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
     paddingVertical: 16,
     paddingHorizontal: 4,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   multilineInput: {
     height: 80,
@@ -1709,7 +1710,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 8,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
   },
   selectedVehicleText: {
     color: '#1a1a1a',
@@ -1729,7 +1730,7 @@ const styles = StyleSheet.create({
   uploadButtonText: {
     fontSize: 16,
     color: '#1a1a1a',
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
     marginTop: 12,
     textAlign: 'center',
   },
@@ -2029,11 +2030,7 @@ const styles = StyleSheet.create({
     right: -8,
     backgroundColor: 'white',
     borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    
   },
   uploadSuccess: {
     flexDirection: 'row',
@@ -2162,7 +2159,6 @@ const styles = StyleSheet.create({
     minWidth: 50,
     textAlign: 'center',
   },
-  // Compact form styles (no shadows)
   compactFormSection: {
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -2526,14 +2522,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
     paddingBottom: 34, // Extra padding for home indicator
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
     maxHeight: '50%',
   },
   drawerHandle: {

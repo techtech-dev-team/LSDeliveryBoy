@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -695,11 +695,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 8,
     padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    
   },
   selectedLocationText: {
     fontSize: 12,

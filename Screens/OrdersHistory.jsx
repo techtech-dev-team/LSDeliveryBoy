@@ -9,7 +9,7 @@ import {
   View,
   Platform
 } from 'react-native';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 
 const OrdersHistory = ({ navigation }) => {
   const [selectedTab, setSelectedTab] = useState('all'); // all, completed, cancelled, recent
