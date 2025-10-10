@@ -13,40 +13,39 @@ import {
 } from 'react-native';
 import { colors } from '../components/colors';
 import { fetchAllOrders } from '../utils/ordershistory';
-import { colors, typography } from '../components/colors';
 
 const OrdersHistory = ({ navigation }) => {
   const [selectedTab, setSelectedTab] = useState('all'); // all, completed, cancelled, recent
 
   // Sample orders history data
-    const [ordersData, setOrdersData] = useState([]);
-    const [loadingOrders, setLoadingOrders] = useState(false);
-    const [ordersError, setOrdersError] = useState(null);
+  const [ordersData, setOrdersData] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [ordersError, setOrdersError] = useState(null);
 
-    // Fetch orders from backend for 'all' tab
-    React.useEffect(() => {
-      if (selectedTab === 'all') {
-        setLoadingOrders(true);
-        setOrdersError(null);
-        (async () => {
-          try {
-            const token = await AsyncStorage.getItem('delivery_boy_token');
-            const res = await fetchAllOrders({ page: 1, limit: 20, token });
-            if (res.success) {
-              setOrdersData(res.orders);
-            } else {
-              setOrdersError(res.message);
-              setOrdersData([]);
-            }
-          } catch (err) {
-            setOrdersError(err.message);
+  // Fetch orders from backend for 'all' tab
+  React.useEffect(() => {
+    if (selectedTab === 'all') {
+      setLoadingOrders(true);
+      setOrdersError(null);
+      (async () => {
+        try {
+          const token = await AsyncStorage.getItem('delivery_boy_token');
+          const res = await fetchAllOrders({ page: 1, limit: 20, token });
+          if (res.success) {
+            setOrdersData(res.orders);
+          } else {
+            setOrdersError(res.message);
             setOrdersData([]);
-          } finally {
-            setLoadingOrders(false);
           }
-        })();
-      }
-    }, [selectedTab]);
+        } catch (err) {
+          setOrdersError(err.message);
+          setOrdersData([]);
+        } finally {
+          setLoadingOrders(false);
+        }
+      })();
+    }
+  }, [selectedTab]);
 
   const filterOrders = (orders) => {
     if (selectedTab === 'completed') {
@@ -74,29 +73,39 @@ const OrdersHistory = ({ navigation }) => {
   };
 
   const renderOrderCard = ({ item }) => (
-    <View style={styles.orderCard}>
+  <TouchableOpacity style={styles.orderCard} onPress={() => navigation.navigate('OrderDetails', { order: item })}>
       <View style={styles.cardHeader}>
         <View style={styles.orderInfo}>
-          <Text style={styles.orderId}>{item.id}</Text>
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status === 'delivered' ? 'Completed' : 'Cancelled'}
+          <Text style={styles.orderId}>{item.orderNumber || item.id || item._id}</Text>
+          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}> 
+            {item.status === 'delivered' ? 'Completed' : item.status === 'cancelled' ? 'Cancelled' : item.status === 'out_for_delivery' ? 'Out for Delivery' : item.status}
           </Text>
         </View>
-        <Text style={styles.amount}>{item.amount}</Text>
+        <Text style={styles.amount}>{item.pricing?.totalAmount ? `₹${item.pricing.totalAmount}` : item.amount ? item.amount : ''}</Text>
       </View>
 
       <View style={styles.customerSection}>
         <View style={styles.customerInfo}>
           <Ionicons name="person-outline" size={16} color={colors.neutrals.gray} />
-          <Text style={styles.customerName}>{item.customerName}</Text>
+          <Text style={styles.customerName}>{item.customerInfo?.personalInfo?.name || item.customerName || 'Customer'}</Text>
         </View>
-        <Text style={styles.itemCount}>{item.items} items</Text>
+        <Text style={styles.itemCount}>
+          {Array.isArray(item.items) ? item.items.length : 0} items
+        </Text>
       </View>
 
       <View style={styles.addressSection}>
         <Ionicons name="location-outline" size={16} color={colors.neutrals.gray} />
         <Text style={styles.address}>
-          {typeof item.address === 'object' && item.address !== null
+          {item.deliveryAddress
+            ? [
+                item.deliveryAddress.landmark,
+                item.deliveryAddress.address,
+                item.deliveryAddress.city,
+                item.deliveryAddress.state,
+                item.deliveryAddress.pincode
+              ].filter(Boolean).join(', ')
+            : typeof item.address === 'object' && item.address !== null
             ? [
                 item.address.landmark,
                 item.address.address,
@@ -109,9 +118,15 @@ const OrdersHistory = ({ navigation }) => {
       </View>
 
       <View style={styles.timeSection}>
-        <Text style={styles.dateTime}>{item.date} at {item.time}</Text>
+        <Text style={styles.dateTime}>
+          {item.createdAt
+            ? `${new Date(item.createdAt).toLocaleDateString()} at ${new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            : item.date && item.time
+            ? `${item.date} at ${item.time}`
+            : ''}
+        </Text>
       </View>
-    </View>
+  </TouchableOpacity>
   );
 
   return (
