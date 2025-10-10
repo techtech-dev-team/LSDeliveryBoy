@@ -28,9 +28,11 @@ const Camera = ({ navigation, route }) => {
   
   const cameraRef = useRef(null);
   
-  // Get the capture type from route params (delivery-proof or id-verification)
+  // Get the capture type from route params (delivery-proof, id-verification, or document-upload)
   const captureType = route?.params?.type || 'delivery-proof';
   const orderId = route?.params?.orderId || null;
+  const documentType = route?.params?.documentType || null;
+  const returnScreen = route?.params?.returnScreen || null;
 
   if (!permission) {
     return (
@@ -100,22 +102,30 @@ const Camera = ({ navigation, route }) => {
     if (!capturedPhoto) return;
 
     try {
-      // Here you would typically upload the photo to your backend
-      // For now, we'll just show success and navigate back
-      Alert.alert(
-        'Success', 
-        `${captureType === 'delivery-proof' ? 'Delivery proof' : 'ID verification'} photo captured successfully!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setShowPreview(false);
-              setCapturedPhoto(null);
-              navigation.goBack();
+      if (captureType === 'document-upload' && documentType && returnScreen) {
+        // Navigate back to the return screen with the captured photo
+        navigation.navigate(returnScreen, {
+          capturedPhoto: capturedPhoto.uri,
+          documentType: documentType,
+          userProfile: route.params?.userProfile // Pass along user profile if available
+        });
+      } else {
+        // Handle other capture types (delivery-proof, id-verification)
+        Alert.alert(
+          'Success', 
+          `${captureType === 'delivery-proof' ? 'Delivery proof' : 'ID verification'} photo captured successfully!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setShowPreview(false);
+                setCapturedPhoto(null);
+                navigation.goBack();
+              }
             }
-          }
-        ]
-      );
+          ]
+        );
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to save photo. Please try again.');
       console.error('Save photo error:', error);
@@ -148,10 +158,16 @@ const Camera = ({ navigation, route }) => {
   };
 
   const getCaptureTypeTitle = () => {
+    if (captureType === 'document-upload') {
+      return documentType ? `Upload ${documentType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}` : 'Upload Document';
+    }
     return captureType === 'delivery-proof' ? 'Delivery Proof' : 'ID Verification';
   };
 
   const getCaptureTypeInstructions = () => {
+    if (captureType === 'document-upload') {
+      return 'Take a clear photo of your document. Make sure all text is readable and the document is well-lit.';
+    }
     if (captureType === 'delivery-proof') {
       return 'Take a clear photo of the delivered items at the customer\'s location';
     }
@@ -195,7 +211,7 @@ const Camera = ({ navigation, route }) => {
         >
           {/* Camera Overlay */}
           <View style={styles.cameraOverlay}>
-            {captureType === 'id-verification' && (
+            {(captureType === 'id-verification' || captureType === 'document-upload') && (
               <View style={styles.idFrame}>
                 <View style={styles.idFrameCorner} />
                 <View style={[styles.idFrameCorner, styles.topRight]} />

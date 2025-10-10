@@ -233,12 +233,6 @@ const Profile = ({ navigation }) => {
               onPress={() => navigation.navigate('Documents', { userProfile })}
             />
             <MenuItem 
-              icon="camera-outline"
-              title="ID Verification"
-              subtitle="Take photo for verification"
-              onPress={() => navigation.navigate('Camera', { type: 'id-verification' })}
-            />
-            <MenuItem 
               icon="card-outline"
               title="Bank Details"
               subtitle={getBankDetailsStatus()}

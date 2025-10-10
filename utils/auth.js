@@ -264,27 +264,74 @@ export const authAPI = {
         throw new Error('No authentication token found');
       }
 
+      console.log('📤 Preparing document upload:', { fileUri, documentType });
+
+      // Validate file URI
+      if (!fileUri || !fileUri.startsWith('file://')) {
+        throw new Error('Invalid file URI provided');
+      }
+
+      // Get file extension and MIME type
+      const fileExtension = fileUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
+      const fileName = `${documentType}_${Date.now()}.${fileExtension}`;
+
+      console.log('📤 File details:', {
+        fileUri,
+        fileExtension,
+        mimeType,
+        fileName
+      });
+
+      // Create FormData with explicit typing for React Native
       const formData = new FormData();
+      
+      // Append file - this is the React Native specific format
+      // Note: React Native requires the file object to have uri, name, and type
       formData.append('document', {
         uri: fileUri,
-        type: 'image/jpeg',
-        name: `${documentType}_${Date.now()}.jpg`,
+        name: fileName,
+        type: mimeType,
       });
+      
+      // Append document type
       formData.append('documentType', documentType);
 
+      // Log FormData for debugging
+      console.log('📤 FormData created with entries:', formData._parts?.length || 'unknown');
+      if (formData._parts) {
+        console.log('📤 FormData parts:', formData._parts.map(part => ({ 
+          fieldName: part[0], 
+          data: typeof part[1] === 'object' ? 'FILE_OBJECT' : part[1] 
+        })));
+      }
+
+      // Make the request
       const response = await fetch(`${API_CONFIG.getBaseURL()}${API_CONFIG.ENDPOINTS.UPLOAD.DOCUMENT}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`,
+          // Note: Don't set Content-Type header for FormData in React Native
+          // The browser/RN will set it automatically with the boundary
         },
         body: formData,
       });
 
-      const data = await response.json();
+      console.log('📤 Upload response status:', response.status);
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log('📤 Upload response data:', data);
+      } catch (parseError) {
+        console.error('📤 Failed to parse response JSON:', parseError);
+        const textResponse = await response.text();
+        console.log('📤 Response text:', textResponse);
+        throw new Error('Server returned invalid JSON response');
+      }
       
       if (!response.ok) {
-        const error = new Error(data.error || data.message || 'Document upload failed');
+        const error = new Error(data.error || data.message || `Upload failed with status ${response.status}`);
         error.details = data.details || [];
         throw error;
       }
@@ -292,7 +339,7 @@ export const authAPI = {
       return {
         success: true,
         data: data.data,
-        url: data.url,
+        url: data.url || data.data?.url,
         message: data.message || 'Document uploaded successfully'
       };
     } catch (error) {
@@ -300,6 +347,189 @@ export const authAPI = {
       return {
         success: false,
         error: error.message || 'Document upload failed',
+        details: error.details || []
+      };
+    }
+  },
+
+  // Alternative JSON-based document upload (for React Native compatibility)
+  uploadDocumentJSON: async (fileUri, documentType) => {
+    try {
+      const token = await authAPI.getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('📤 Preparing JSON document upload:', { fileUri, documentType });
+
+      // Validate file URI
+      if (!fileUri || !fileUri.startsWith('file://')) {
+        throw new Error('Invalid file URI provided');
+      }
+
+      // Get file extension and MIME type
+      const fileExtension = fileUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
+      const fileName = `${documentType}_${Date.now()}.${fileExtension}`;
+
+      console.log('📤 File details:', {
+        fileUri,
+        fileExtension,
+        mimeType,
+        fileName
+      });
+
+      // Read file as base64 using fetch
+      let base64Data;
+      try {
+        const response = await fetch(fileUri);
+        const blob = await response.blob();
+        
+        // Convert blob to base64
+        base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            // Remove the data:mime;base64, prefix
+            const base64 = result.split(',')[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        
+        console.log('📤 File converted to base64, size:', base64Data.length);
+      } catch (fileError) {
+        console.error('📤 Error reading file:', fileError);
+        throw new Error('Failed to read file for upload');
+      }
+
+      // Prepare JSON payload
+      const uploadData = {
+        documentType,
+        fileName,
+        mimeType,
+        fileData: base64Data
+      };
+
+      // Make the request
+      const response = await fetch(`${API_CONFIG.getBaseURL()}/delivery/documents/upload-json`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(uploadData),
+      });
+
+      console.log('📤 Upload response status:', response.status);
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log('📤 Upload response data:', data);
+      } catch (parseError) {
+        console.error('📤 Failed to parse response JSON:', parseError);
+        const textResponse = await response.text();
+        console.log('📤 Response text:', textResponse);
+        throw new Error('Server returned invalid JSON response');
+      }
+      
+      if (!response.ok) {
+        const error = new Error(data.error || data.message || `Upload failed with status ${response.status}`);
+        error.details = data.details || [];
+        throw error;
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        url: data.url || data.data?.url,
+        message: data.message || 'Document uploaded successfully'
+      };
+    } catch (error) {
+      console.error('JSON Document upload error:', error);
+      return {
+        success: false,
+        error: error.message || 'Document upload failed',
+        details: error.details || []
+      };
+    }
+  },
+
+  // Get delivery boy documents
+  getDocuments: async () => {
+    try {
+      const token = await authAPI.getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_CONFIG.getBaseURL()}${API_CONFIG.ENDPOINTS.UPLOAD.DOCUMENT}`, {
+        method: 'GET',
+        headers: {
+          ...API_CONFIG.DEFAULT_HEADERS,
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        const error = new Error(data.error || data.message || 'Failed to fetch documents');
+        error.details = data.details || [];
+        throw error;
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message || 'Documents fetched successfully'
+      };
+    } catch (error) {
+      console.error('Get documents error:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to fetch documents',
+        details: error.details || []
+      };
+    }
+  },
+
+  // Delete a specific document
+  deleteDocument: async (documentType) => {
+    try {
+      const token = await authAPI.getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_CONFIG.getBaseURL()}${API_CONFIG.ENDPOINTS.UPLOAD.DOCUMENT}/${documentType}`, {
+        method: 'DELETE',
+        headers: {
+          ...API_CONFIG.DEFAULT_HEADERS,
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        const error = new Error(data.error || data.message || 'Failed to delete document');
+        error.details = data.details || [];
+        throw error;
+      }
+
+      return {
+        success: true,
+        message: data.message || 'Document deleted successfully'
+      };
+    } catch (error) {
+      console.error('Delete document error:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to delete document',
         details: error.details || []
       };
     }
