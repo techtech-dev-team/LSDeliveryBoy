@@ -88,6 +88,8 @@ class DashboardAPI {
         body: JSON.stringify(body),
       });
 
+      console.log(`✅ Availability updated to ${status}:`, response.data);
+      
       return {
         success: true,
         data: response.data,
