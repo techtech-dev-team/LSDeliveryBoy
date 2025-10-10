@@ -33,6 +33,10 @@ const Dashboard = ({ navigation }) => {
   const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   
+  // Auto status management states
+  const [showGoOnlinePrompt, setShowGoOnlinePrompt] = useState(false);
+  const [hasCheckedInitialStatus, setHasCheckedInitialStatus] = useState(false);
+  
   // API Data states
   const [dashboardStats, setDashboardStats] = useState({
     todayStats: {
@@ -86,6 +90,165 @@ const Dashboard = ({ navigation }) => {
   };
 
   const filteredDeliveries = getFilteredDeliveries();
+
+  // Auto status management based on order count
+  const checkAndManageStatus = async (currentDeliveries = deliveries, currentOnlineStatus = isOnline) => {
+    const activeOrders = currentDeliveries.filter(delivery => 
+      ['assigned', 'picked_up', 'out_for_delivery'].includes(delivery.status)
+    );
+    
+    console.log(`📊 Active orders count: ${activeOrders.length}, Current status: ${currentOnlineStatus ? 'online' : 'offline'}`);
+    
+    // If has more than 2 active orders and currently online, automatically go offline
+    if (activeOrders.length > 2 && currentOnlineStatus) {
+      console.log('🔴 Too many orders (>2), automatically going offline...');
+      try {
+        const response = await dashboardAPI.updateAvailability('offline');
+        if (response.success) {
+          setIsOnline(false);
+          Alert.alert(
+            'Status Updated',
+            `You have ${activeOrders.length} active orders. You've been automatically set to offline to prevent overload.`,
+            [{ text: 'OK' }]
+          );
+        }
+      } catch (error) {
+        console.error('Error auto-setting offline:', error);
+      }
+    }
+    
+    // If has no active orders, offline, and hasn't been prompted yet, ask to go online
+    if (activeOrders.length === 0 && !currentOnlineStatus && hasCheckedInitialStatus) {
+      console.log('🟢 No active orders, prompting to go online...');
+      setShowGoOnlinePrompt(true);
+    }
+  };
+
+  // Handle the go online prompt response
+  const handleGoOnlinePrompt = async (shouldGoOnline) => {
+    setShowGoOnlinePrompt(false);
+    
+    if (shouldGoOnline) {
+      try {
+        const response = await dashboardAPI.updateAvailability('online');
+        if (response.success) {
+          setIsOnline(true);
+          
+          // Handle any new orders from going online
+          if (response.data.pendingOrders && response.data.pendingOrders.length > 0) {
+            const transformedOrders = response.data.pendingOrders.map(order => {
+              // ... (transformation logic from handleAvailabilityToggle)
+              // Handle address object - use the actual structure from API
+              let addressText = 'Address not available';
+              if (order.deliveryAddress) {
+                if (typeof order.deliveryAddress === 'string') {
+                  addressText = order.deliveryAddress;
+                } else if (typeof order.deliveryAddress === 'object') {
+                  const addr = order.deliveryAddress;
+                  const parts = [
+                    addr.address,
+                    addr.landmark,
+                    addr.city,
+                    addr.state,
+                    addr.pincode
+                  ].filter(Boolean);
+                  addressText = parts.length > 0 ? parts.join(', ') : 'Address not available';
+                }
+              }
+
+              // Handle customer name
+              let customerName = 'Unknown Customer';
+              let customerPhone = '';
+              
+              if (order.customerInfo) {
+                customerName = order.customerInfo.name || 'Unknown Customer';
+                customerPhone = order.customerInfo.phone || '';
+              } else if (order.customer) {
+                if (order.customer.firstName || order.customer.lastName) {
+                  customerName = `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim();
+                } else if (order.customer.name) {
+                  customerName = order.customer.name;
+                }
+                customerPhone = order.customer.phoneNumber || '';
+              }
+
+              // Handle vendor information
+              let vendorName = '';
+              let pickupAddress = '';
+              if (order.vendors && order.vendors.length > 0) {
+                const firstVendor = order.vendors[0];
+                if (firstVendor.vendor) {
+                  vendorName = firstVendor.vendor.vendorInfo?.businessName || firstVendor.vendor.name || '';
+                  const businessAddr = firstVendor.vendor.vendorInfo?.businessAddress;
+                  if (businessAddr) {
+                    const vendorParts = [
+                      businessAddr.address,
+                      businessAddr.city,
+                      businessAddr.state,
+                      businessAddr.pincode
+                    ].filter(Boolean);
+                    pickupAddress = vendorParts.join(', ');
+                  }
+                }
+              }
+
+              // Handle items
+              const itemsList = order.items?.map(item => {
+                const productName = item.product?.name || item.name || 'Item';
+                return `${item.quantity}x ${productName}`;
+              }) || ['Items not specified'];
+
+              return {
+                id: order._id,
+                mongoId: order._id,
+                orderNumber: order.orderNumber,
+                customerName: customerName,
+                customerPhone: customerPhone,
+                customerEmail: order.customerInfo?.email || '',
+                address: addressText,
+                items: itemsList,
+                amount: `₹${(order.pricing?.total || order.totalAmount || 0).toFixed(2)}`,
+                status: order.status || 'out_for_delivery',
+                distance: order.deliveryDistance || 'N/A',
+                estimatedTime: order.estimatedDeliveryTime || 'N/A',
+                assignedBy: 'system',
+                assignedVendor: order.vendors?.[0]?.vendor?._id || null,
+                orderType: 'lalaji_store',
+                priority: order.priority || 'normal',
+                vendorName: vendorName,
+                pickupAddress: pickupAddress,
+                paymentMethod: order.payment?.method || 'cod',
+                paymentStatus: order.payment?.status || 'pending',
+                specialInstructions: order.specialInstructions || '',
+                coordinates: order.deliveryAddress?.coordinates || null,
+                createdAt: order.createdAt,
+                updatedAt: order.updatedAt
+              };
+            });
+            
+            setDeliveries(transformedOrders);
+            
+            Alert.alert(
+              'You\'re Online!',
+              `Great! You're now online and ready for deliveries. ${response.data.ordersCount || 0} orders available.`,
+              [{ text: 'OK' }]
+            );
+          } else {
+            Alert.alert(
+              'You\'re Online!',
+              'Great! You\'re now online and ready for deliveries.',
+              [{ text: 'OK' }]
+            );
+            // Refresh to get latest orders
+            loadDashboardData(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error going online:', error);
+        Alert.alert('Error', 'Failed to go online. Please try again.');
+      }
+    }
+  };
 
   // Load Dashboard Data from API
   const loadDashboardData = async (showLoader = true) => {
@@ -336,6 +499,24 @@ const Dashboard = ({ navigation }) => {
     loadDashboardData();
   }, []);
 
+  // Auto status management - monitor delivery count changes
+  useEffect(() => {
+    if (hasCheckedInitialStatus) {
+      checkAndManageStatus(deliveries, isOnline);
+    }
+  }, [deliveries.length, hasCheckedInitialStatus]);
+
+  // Set initial status check flag after first load
+  useEffect(() => {
+    if (!hasCheckedInitialStatus && deliveries.length >= 0) {
+      setHasCheckedInitialStatus(true);
+      // Check status on initial load
+      setTimeout(() => {
+        checkAndManageStatus(deliveries, isOnline);
+      }, 1000); // Small delay to ensure everything is loaded
+    }
+  }, [deliveries, hasCheckedInitialStatus]);
+
   // Auto-refresh orders when online
   useEffect(() => {
     let interval = null;
@@ -490,6 +671,11 @@ const Dashboard = ({ navigation }) => {
             alertMessage,
             [{ text: 'OK' }]
           );
+
+          // Check status after getting new orders
+          setTimeout(() => {
+            checkAndManageStatus(transformedOrders, newStatus === 'online');
+          }, 1000);
         } else if (newStatus === 'online') {
           // If going online but no orders from API, fetch fresh data
           console.log('🔄 Going online - fetching new orders...');
@@ -542,13 +728,12 @@ const Dashboard = ({ navigation }) => {
 
       if (response.success) {
         // Update local state
-        setDeliveries(prev => 
-          prev.map(delivery => 
-            delivery.id === orderId 
-              ? { ...delivery, status: newStatus }
-              : delivery
-          )
+        const updatedDeliveries = deliveries.map(delivery => 
+          delivery.id === orderId 
+            ? { ...delivery, status: newStatus }
+            : delivery
         );
+        setDeliveries(updatedDeliveries);
 
         const statusMessages = {
           picked_up: 'Order marked as picked up',
@@ -568,6 +753,11 @@ const Dashboard = ({ navigation }) => {
             }
           }));
         }
+
+        // Check and manage status after order completion
+        setTimeout(() => {
+          checkAndManageStatus(updatedDeliveries, isOnline);
+        }, 500);
       } else {
         console.error(`❌ API Error: ${response.error}`);
         Alert.alert('Error', response.error || 'Failed to update order status');
@@ -884,9 +1074,16 @@ const Dashboard = ({ navigation }) => {
             <Text style={styles.statusLabel}>
               {isOnline ? 'Online' : 'Offline'}
             </Text>
+            {filteredDeliveries.filter(d => ['assigned', 'picked_up', 'out_for_delivery'].includes(d.status)).length > 2 && isOnline && (
+              <View style={styles.autoManageIndicator}>
+                <Text style={styles.autoManageText}>Auto-managed</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.statusSubtext}>
             {isOnline ? 'Available for deliveries' : 'Not accepting orders'}
+            {filteredDeliveries.filter(d => ['assigned', 'picked_up', 'out_for_delivery'].includes(d.status)).length > 2 && 
+              ' • Will auto-offline if overloaded'}
           </Text>
         </View>
         <Switch
@@ -1334,6 +1531,43 @@ const Dashboard = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Go Online Prompt Modal */}
+      <Modal
+        visible={showGoOnlinePrompt}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowGoOnlinePrompt(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '40%' }]}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="bicycle-outline" size={48} color={colors.primary.yellow2} />
+              <Text style={styles.modalTitle}>Ready for Deliveries?</Text>
+              <Text style={styles.modalSubtitle}>
+                You don't have any active orders. Would you like to go online to start receiving new deliveries?
+              </Text>
+            </View>
+
+            <View style={styles.promptActions}>
+              <TouchableOpacity
+                style={[styles.promptBtn, styles.primaryPromptBtn]}
+                onPress={() => handleGoOnlinePrompt(true)}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="white" />
+                <Text style={styles.primaryPromptText}>Yes, Go Online</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.promptBtn, styles.secondaryPromptBtn]}
+                onPress={() => handleGoOnlinePrompt(false)}
+              >
+                <Text style={styles.secondaryPromptText}>Maybe Later</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1464,6 +1698,18 @@ const styles = StyleSheet.create({
     color: colors.neutrals.gray,
     marginTop: 2,
     fontFamily: typography.fontFamily.regular,
+  },
+  autoManageIndicator: {
+    backgroundColor: colors.primary.yellow1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  autoManageText: {
+    fontSize: 10,
+    color: colors.neutrals.dark,
+    fontFamily: typography.fontFamily.medium,
   },
   statsSection: {
     marginHorizontal: 20,
@@ -2160,6 +2406,39 @@ const styles = StyleSheet.create({
   cameraActionText: {
     fontSize: 14,
     fontFamily: typography.fontFamily.medium,
+  },
+  
+  // Go Online Prompt Styles
+  promptActions: {
+    gap: 12,
+    marginTop: 20,
+  },
+  promptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
+  },
+  primaryPromptBtn: {
+    backgroundColor: colors.primary.yellow2,
+  },
+  secondaryPromptBtn: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderWidth: 1,
+    borderColor: colors.neutrals.gray,
+  },
+  primaryPromptText: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.medium,
+    color: 'white',
+  },
+  secondaryPromptText: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.gray,
   },
 });
 
