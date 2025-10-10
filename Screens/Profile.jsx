@@ -13,7 +13,7 @@ import {
     RefreshControl,
     Image
 } from 'react-native';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 import { dashboardAPI } from '../utils/dashboard';
 import { authAPI } from '../utils/auth';
 
