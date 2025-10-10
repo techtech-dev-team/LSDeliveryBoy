@@ -229,7 +229,7 @@ const Profile = ({ navigation }) => {
             <MenuItem 
               icon="document-text-outline"
               title="Documents"
-              subtitle={`${userProfile?.deliveryBoyInfo?.documents?.length || 0} documents uploaded`}
+              subtitle={`${Object.keys(userProfile?.deliveryBoyInfo?.documentsByType || {}).length} documents uploaded`}
               onPress={() => navigation.navigate('Documents', { userProfile })}
             />
             <MenuItem 
@@ -247,25 +247,25 @@ const Profile = ({ navigation }) => {
               icon="bicycle-outline"
               title="Vehicle Information"
               subtitle={getVehicleInfo()}
-              onPress={() => navigation.navigate('VehicleInfo', { userProfile })}
+              onPress={() => navigation.navigate('EditProfile', { userProfile, section: 'vehicle' })}
             />
             <MenuItem 
               icon="time-outline"
               title="Working Hours"
               subtitle={`${userProfile?.deliveryBoyInfo?.workingHours?.start || '09:00'} - ${userProfile?.deliveryBoyInfo?.workingHours?.end || '18:00'}`}
-              onPress={() => navigation.navigate('WorkingHours', { userProfile })}
+              onPress={() => navigation.navigate('EditProfile', { userProfile, section: 'workingHours' })}
             />
             <MenuItem 
               icon="briefcase-outline"
               title="Experience"
               subtitle={getExperience()}
-              onPress={() => navigation.navigate('Experience', { userProfile })}
+              onPress={() => navigation.navigate('EditProfile', { userProfile, section: 'experience' })}
             />
             <MenuItem 
               icon="star-outline"
               title="Ratings & Reviews"
               subtitle="View your performance"
-              onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon')}
+              onPress={() => navigation.navigate('OrderHistory', { userProfile })}
             />
           </View>
 
@@ -276,19 +276,19 @@ const Profile = ({ navigation }) => {
               icon="notifications-outline"
               title="Notifications"
               subtitle="Push notifications, SMS"
-              onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon')}
+              onPress={() => navigation.navigate('EditProfile', { userProfile, section: 'notifications' })}
             />
             <MenuItem 
               icon="language-outline"
               title="Language"
               subtitle="English"
-              onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon')}
+              onPress={() => Alert.alert('Language', 'Language selection will be available in future updates')}
             />
             <MenuItem 
               icon="lock-closed-outline"
               title="Change Password"
               subtitle="Update your password"
-              onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon')}
+              onPress={() => navigation.navigate('EditProfile', { userProfile, section: 'password' })}
             />
           </View>
 
@@ -299,13 +299,35 @@ const Profile = ({ navigation }) => {
               icon="help-circle-outline"
               title="Help & Support"
               subtitle="FAQ, Contact support"
-              onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon')}
+              onPress={() => {
+                Alert.alert(
+                  'Help & Support',
+                  'Need help? Contact us:',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Call Support', 
+                      onPress: () => Alert.alert('Support', 'Call: +91-1234567890')
+                    },
+                    { 
+                      text: 'Email Support', 
+                      onPress: () => Alert.alert('Support', 'Email: support@lalaji.com')
+                    }
+                  ]
+                );
+              }}
             />
             <MenuItem 
               icon="document-outline"
               title="Terms & Privacy"
               subtitle="Legal information"
-              onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon')}
+              onPress={() => {
+                Alert.alert(
+                  'Terms & Privacy',
+                  'Legal documents and privacy policy information will be available in the app settings.',
+                  [{ text: 'OK' }]
+                );
+              }}
             />
           </View>
 
