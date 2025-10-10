@@ -12,7 +12,6 @@ import BankDetails from '../Screens/BankDetails';
 import LocationPicker from '../Screens/LocationPicker';
 import HelpSupport from '../Screens/HelpSupport';
 import TermsPrivacy from '../Screens/TermsPrivacy';
-import OrderHistory from '../Screens/OrderHistory';
 import BottomNavigation from './BottomNavigation';
 import { authAPI } from '../utils/auth';
 
@@ -191,15 +190,6 @@ const AppNavigation = () => {
               presentation: 'card',
               animation: 'slide_from_right',
               title: 'Terms & Privacy'
-            }}
-          />
-          <Stack.Screen 
-            name="OrderHistory" 
-            component={OrderHistory}
-            options={{
-              presentation: 'card',
-              animation: 'slide_from_right',
-              title: 'Order History'
             }}
           />
         </>
