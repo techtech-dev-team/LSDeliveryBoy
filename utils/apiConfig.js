@@ -43,16 +43,22 @@ export const API_CONFIG = {
       FORGOT_PASSWORD: '/auth/forgot-password',
       RESET_PASSWORD: '/auth/reset-password',
       UPDATE_PROFILE: '/auth/update-profile',
+      PROFILE: '/auth/profile',
+      ME: '/auth/me',
     },
     UPLOAD: {
       DOCUMENT: '/upload/document',
       AVATAR: '/upload/avatar',
     },
     DELIVERY: {
-      ORDERS: '/delivery/orders',
-      UPDATE_STATUS: '/delivery/update-status',
+      DASHBOARD: '/delivery/dashboard',
       EARNINGS: '/delivery/earnings',
+      PROFILE: '/delivery/profile',
       AVAILABILITY: '/delivery/availability',
+      DELIVERIES: '/delivery/deliveries',
+      HISTORY: '/delivery/history',
+      LOCATION: '/delivery/location',
+      ISSUES: '/delivery/issues',
     }
   }
 };

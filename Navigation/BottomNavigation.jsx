@@ -1,7 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import React from 'react';
 import { StyleSheet } from 'react-native';
+import { HomeIcon, ListBulletIcon, ChartBarIcon, UserIcon } from 'react-native-heroicons/outline';
+import { HomeIcon as HomeIconSolid, ListBulletIcon as ListBulletIconSolid, ChartBarIcon as ChartBarIconSolid, UserIcon as UserIconSolid } from 'react-native-heroicons/solid';
 
 import Dashboard from '../Screens/Dashboard';
 import Earnings from '../Screens/Earnings';
@@ -17,19 +18,25 @@ const BottomNavigation = () => {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+          const iconSize = size || 24;
 
           if (route.name === 'Dashboard') {
-            iconName = focused ? 'home' : 'home-outline';
+            return focused ? 
+              <HomeIconSolid width={iconSize} height={iconSize} color={color} /> : 
+              <HomeIcon width={iconSize} height={iconSize} color={color} />;
           } else if (route.name === 'Orders') {
-            iconName = focused ? 'list' : 'list-outline';
+            return focused ? 
+              <ListBulletIconSolid width={iconSize} height={iconSize} color={color} /> : 
+              <ListBulletIcon width={iconSize} height={iconSize} color={color} />;
           } else if (route.name === 'Earnings') {
-            iconName = focused ? 'trending-up' : 'trending-up-outline';
+            return focused ? 
+              <ChartBarIconSolid width={iconSize} height={iconSize} color={color} /> : 
+              <ChartBarIcon width={iconSize} height={iconSize} color={color} />;
           } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
+            return focused ? 
+              <UserIconSolid width={iconSize} height={iconSize} color={color} /> : 
+              <UserIcon width={iconSize} height={iconSize} color={color} />;
           }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: colors.primary.yellow2,
         tabBarInactiveTintColor: colors.neutrals.gray,
@@ -76,8 +83,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.neutrals.lightGray,
     paddingTop: 8,
-    paddingBottom: 8,
-    height: 70,
+    paddingBottom: 28,
+    height: 90,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },

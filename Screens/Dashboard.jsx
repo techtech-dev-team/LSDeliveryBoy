@@ -5,6 +5,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -15,6 +16,7 @@ import {
   View
 } from 'react-native';
 import { colors } from '../components/colors';
+import { dashboardAPI } from '../utils/dashboard';
 
 const Dashboard = ({ navigation }) => {
   // Loading and error states
@@ -86,78 +88,114 @@ const Dashboard = ({ navigation }) => {
 
   const filteredDeliveries = getFilteredDeliveries();
 
-  // Mock Data Functions
+  // Load Dashboard Data from API
   const loadDashboardData = async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
       setError(null);
 
-      // Mock dashboard stats
-      const mockStats = {
-        todayStats: {
-          totalOrders: 8,
-          completedOrders: 5,
-          earnings: 450
+      // Fetch delivery boy profile
+      const profileResponse = await dashboardAPI.getProfile();
+      if (profileResponse.success) {
+        const userData = profileResponse.data;
+        setDeliveryBoyInfo({
+          id: userData._id,
+          name: userData.name || 'Unknown User',
+          phone: userData.phoneNumber || '',
+          isVerified: userData.isPhoneVerified || false,
+          approvalStatus: userData.deliveryBoyInfo?.approvalStatus || userData.isActive ? 'approved' : 'pending'
+        });
+        
+        // Set delivery boy type based on profile data
+        if (userData.deliveryBoyInfo?.deliveryPartner) {
+          setDeliveryBoyType(userData.deliveryBoyInfo.deliveryPartner === 'lalaji_network' ? 'lalaji_store' : 'vendor_managed');
         }
-      };
+      } else {
+        console.warn('Profile API error:', profileResponse.error);
+        // Keep existing delivery boy info if API fails
+      }
+
+      // Fetch dashboard data from API
+      const dashboardResponse = await dashboardAPI.getDashboard();
       
-      // Mock deliveries data
-      const mockDeliveries = [
-        {
-          id: 'ORD001',
-          customerName: 'Rajesh Kumar',
-          customerPhone: '+91 9876543210',
-          address: 'Sector 15, Plot 123, Gurgaon, Haryana 122015',
-          items: ['2x Rice (1kg)', '1x Dal (500g)', '1x Oil (1L)'],
-          amount: '₹285',
-          status: 'assigned',
-          distance: '2.3 km',
-          estimatedTime: '12 mins',
-          assignedBy: deliveryBoyType === 'lalaji_store' ? 'system' : 'vendor',
-          assignedVendor: deliveryBoyType === 'vendor_managed' ? assignedVendor?.id : null,
-          orderType: deliveryBoyType,
-          priority: 'high'
-        },
-        {
-          id: 'ORD002',
-          customerName: 'Priya Sharma',
-          customerPhone: '+91 9123456789',
-          address: 'Golf Course Road, DLF Phase 2, Gurgaon',
-          items: ['1x Milk (1L)', '2x Bread', '1x Eggs (12pc)'],
-          amount: '₹180',
-          status: 'picked_up',
-          distance: '1.8 km',
-          estimatedTime: '8 mins',
-          assignedBy: deliveryBoyType === 'lalaji_store' ? 'system' : 'vendor',
-          assignedVendor: deliveryBoyType === 'vendor_managed' ? assignedVendor?.id : null,
-          orderType: deliveryBoyType,
-          priority: 'normal'
-        }
-      ];
+      if (dashboardResponse.success) {
+        // Update dashboard stats
+        setDashboardStats({
+          todayStats: dashboardResponse.data.todayStats || {
+            totalOrders: 0,
+            completedOrders: 0,
+            earnings: 0
+          }
+        });
+        
+        // Set online status from API
+        setIsOnline(dashboardResponse.data.currentStatus === 'online');
+      } else {
+        console.warn('Dashboard API error:', dashboardResponse.error);
+        // Keep default stats if API fails
+        setDashboardStats({
+          todayStats: {
+            totalOrders: 0,
+            completedOrders: 0,
+            earnings: 0
+          }
+        });
+      }
+
+      // Fetch assigned deliveries
+      const deliveriesResponse = await dashboardAPI.getAssignedDeliveries();
       
-      // Update dashboard stats
-      setDashboardStats(mockStats);
+      if (deliveriesResponse.success) {
+        // Transform API data to match component format
+        const transformedDeliveries = deliveriesResponse.data.orders.map(order => ({
+          id: order._id || order.orderNumber,
+          customerName: `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || order.customer?.name || 'Unknown Customer',
+          customerPhone: order.customer?.phoneNumber || '',
+          address: order.deliveryAddress || order.vendor?.address || 'Address not available',
+          items: order.items?.map(item => 
+            `${item.quantity}x ${item.product?.name || item.name || 'Item'}`
+          ) || ['Items not specified'],
+          amount: `₹${order.totalAmount || 0}`,
+          status: order.status || 'assigned',
+          distance: order.deliveryDistance || 'N/A',
+          estimatedTime: order.estimatedDeliveryTime || 'N/A',
+          assignedBy: 'system',
+          assignedVendor: order.vendor?._id || null,
+          orderType: 'lalaji_store',
+          priority: order.priority || 'normal',
+          vendorName: order.vendor?.storeName || '',
+          pickupAddress: order.vendor?.address || ''
+        }));
+        
+        setDeliveries(transformedDeliveries);
+      } else {
+        console.warn('Deliveries API error:', deliveriesResponse.error);
+        setDeliveries([]);
+      }
       
-      // Update deliveries
-      setDeliveries(mockDeliveries);
-      
-      // Update online status (mock)
-      setIsOnline(true);
-      
-      // Load mock notifications
+      // Load notifications
       loadNotifications();
         
     } catch (error) {
       console.error('Dashboard load error:', error);
       setError('Failed to load dashboard data');
-      Alert.alert('Error', 'Failed to load dashboard data');
+      
+      // Don't show alert on every refresh, only on initial load
+      if (showLoader) {
+        Alert.alert(
+          'Connection Error', 
+          'Failed to load dashboard data. Please check your internet connection and try again.',
+          [
+            { text: 'Retry', onPress: () => loadDashboardData(true) },
+            { text: 'Continue Offline', style: 'cancel' }
+          ]
+        );
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const loadNotifications = async () => {
+  };  const loadNotifications = async () => {
     try {
       // Mock notifications data
       const mockNotifications = [
@@ -233,62 +271,98 @@ const Dashboard = ({ navigation }) => {
     try {
       const newStatus = !isOnline ? 'online' : 'offline';
       
-      // Mock successful status update
-      setIsOnline(!isOnline);
-      Alert.alert(
-        'Status Updated',
-        `You are now ${newStatus}`,
-        [{ text: 'OK' }]
-      );
+      // For now, just update the local state without backend call
+      // TODO: Enable when backend availability endpoint is ready
+      // const response = await dashboardAPI.updateAvailability(newStatus);
+      
+      // Simulate successful response for now
+      const response = { success: true };
+      
+      if (response.success) {
+        setIsOnline(!isOnline);
+        Alert.alert(
+          'Status Updated',
+          `You are now ${newStatus}`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', response.error || 'Failed to update availability status');
+      }
     } catch (error) {
+      console.error('Availability toggle error:', error);
       Alert.alert('Error', 'Failed to update availability status');
     }
   };
 
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
-      // Mock successful status update
-      // Update local state
-      setDeliveries(prev => 
-        prev.map(delivery => 
-          delivery.id === orderId 
-            ? { ...delivery, status: newStatus }
-            : delivery
-        )
-      );
-
-      const statusMessages = {
-        picked_up: 'Order marked as picked up',
-        out_for_delivery: 'Order is now out for delivery',
-        delivered: 'Order marked as delivered'
-      };
-
-      Alert.alert('Status Updated', statusMessages[newStatus]);
+      let response;
       
-      // Update stats if delivered
-      if (newStatus === 'delivered') {
-        setDashboardStats(prev => ({
-          ...prev,
-          todayStats: {
-            ...prev.todayStats,
-            completedOrders: prev.todayStats.completedOrders + 1
-          }
-        }));
+      // Call appropriate API method based on status
+      switch (newStatus) {
+        case 'picked_up':
+          response = await dashboardAPI.markPickedUp(orderId);
+          break;
+        case 'delivered':
+          response = await dashboardAPI.markDelivered(orderId);
+          break;
+        default:
+          response = await dashboardAPI.updateDeliveryStatus(orderId, newStatus);
+      }
+
+      if (response.success) {
+        // Update local state
+        setDeliveries(prev => 
+          prev.map(delivery => 
+            delivery.id === orderId 
+              ? { ...delivery, status: newStatus }
+              : delivery
+          )
+        );
+
+        const statusMessages = {
+          picked_up: 'Order marked as picked up',
+          out_for_delivery: 'Order is now out for delivery',
+          delivered: 'Order marked as delivered'
+        };
+
+        Alert.alert('Status Updated', statusMessages[newStatus]);
+        
+        // Update stats if delivered
+        if (newStatus === 'delivered') {
+          setDashboardStats(prev => ({
+            ...prev,
+            todayStats: {
+              ...prev.todayStats,
+              completedOrders: prev.todayStats.completedOrders + 1
+            }
+          }));
+        }
+      } else {
+        Alert.alert('Error', response.error || 'Failed to update order status');
       }
     } catch (error) {
+      console.error('Status update error:', error);
       Alert.alert('Error', 'Failed to update order status');
     }
   };
 
   const handleReportIssue = async (orderId, issue) => {
     try {
-      // Mock successful issue report
-      Alert.alert(
-        'Issue Reported',
-        `Issue "${issue}" reported for order ${orderId}`,
-        [{ text: 'OK' }]
-      );
+      // Report issue via API
+      const response = await dashboardAPI.reportIssue(orderId, issue);
+      
+      if (response.success) {
+        Alert.alert(
+          'Issue Reported',
+          `Issue "${issue}" reported for order ${orderId}`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', response.error || 'Failed to report issue');
+      }
     } catch (error) {
+      console.error('Report issue error:', error);
       Alert.alert('Error', 'Failed to report issue');
     }
     
@@ -863,6 +937,7 @@ const Dashboard = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 45,
     backgroundColor: 'white',
   },
   loadingContainer: {
@@ -881,8 +956,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: 'white',
   },
   headerLeft: {
@@ -893,24 +968,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   greeting: {
-    fontSize: 14,
+    fontSize: 11,
     color: colors.neutrals.gray,
     fontWeight: '400',
   },
   driverName: {
-    fontSize: 24,
+    fontSize: 16,
     color: colors.neutrals.dark,
-    fontWeight: '300',
-    marginTop: 4,
-    letterSpacing: -0.5,
+    fontWeight: '600',
+    marginTop: 1,
+    letterSpacing: -0.3,
+  },
+  deliveryBoyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.yellow1,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginTop: 3,
+    alignSelf: 'flex-start',
+  },
+  badgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    color: colors.neutrals.dark,
+    fontWeight: '500',
+    marginLeft: 4,
   },
   mapButton: {
-    padding: 12,
-    marginRight: 8,
+    padding: 8,
+    marginRight: 4,
   },
   notificationButton: {
     position: 'relative',
-    padding: 12,
+    padding: 8,
   },
   notificationBadge: {
     position: 'absolute',
@@ -933,11 +1029,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: 'white',
-    marginHorizontal: 32,
-    marginVertical: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderRadius: 16,
+    marginHorizontal: 20,
+    marginVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.neutrals.lightGray,
   },
@@ -949,79 +1045,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 12,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 8,
   },
   statusLabel: {
-    fontSize: 18,
-    fontWeight: '400',
+    fontSize: 16,
+    fontWeight: '500',
     color: colors.neutrals.dark,
   },
   statusSubtext: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.neutrals.gray,
-    marginTop: 4,
+    marginTop: 2,
     fontWeight: '400',
   },
   statsSection: {
-    marginHorizontal: 32,
-    marginVertical: 16,
+    marginHorizontal: 20,
+    marginVertical: 8,
   },
   statsTitle: {
     fontSize: 16,
-    fontWeight: '400',
+    fontWeight: '500',
     color: colors.neutrals.dark,
-    marginBottom: 16,
-    letterSpacing: -0.5,
+    marginBottom: 12,
+    letterSpacing: -0.3,
   },
   statsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   statCard: {
     flex: 1,
     backgroundColor: colors.neutrals.lightGray,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 20,
-    fontWeight: '300',
+    fontSize: 18,
+    fontWeight: '600',
     color: colors.neutrals.dark,
-    marginTop: 8,
-    marginBottom: 4,
-    letterSpacing: -0.5,
+    marginTop: 6,
+    marginBottom: 2,
+    letterSpacing: -0.3,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.neutrals.gray,
-    textAlign: 'center',
     fontWeight: '400',
+    textAlign: 'center',
   },
   deliveryBoyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.neutrals.lightGray,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: colors.primary.yellow1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
-    marginTop: 8,
-    maxWidth: 200,
+    marginTop: 4,
+    alignSelf: 'flex-start',
   },
   badgeContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-  },
-  badgeText: {
-    fontSize: 11,
-    color: colors.neutrals.dark,
-    fontWeight: '500',
-    marginLeft: 6,
+    marginRight: 4,
   },
   deliveriesSection: {
     flex: 1,
@@ -1031,39 +1120,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 32,
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '300',
+    fontSize: 16,
+    fontWeight: '500',
     color: colors.neutrals.dark,
-    letterSpacing: -0.5,
-    flex: 1,
+    letterSpacing: -0.3,
   },
   testButton: {
     padding: 8,
   },
   deliveriesList: {
-    paddingBottom: 32,
+    paddingHorizontal: 20,
   },
   deliveryCard: {
     backgroundColor: 'white',
-    marginHorizontal: 32,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.neutrals.lightGray,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutrals.lightGray,
+    marginBottom: 8,
   },
   orderInfo: {
     flexDirection: 'row',
@@ -1071,32 +1160,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   orderId: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.neutrals.dark,
-    marginRight: 16,
+    marginRight: 8,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusText: {
-    fontSize: 12,
-    color: 'white',
+    fontSize: 11,
     fontWeight: '500',
+    color: 'white',
   },
   amount: {
-    fontSize: 20,
-    fontWeight: '300',
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.neutrals.dark,
-    letterSpacing: -0.5,
   },
   customerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   customerInfo: {
     flexDirection: 'row',
@@ -1104,400 +1192,151 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   customerName: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.neutrals.dark,
-    fontWeight: '400',
-    marginLeft: 12,
+    fontWeight: '500',
+    marginLeft: 6,
   },
   phoneButton: {
-    padding: 12,
+    padding: 6,
+    borderRadius: 16,
     backgroundColor: colors.neutrals.lightGray,
-    borderRadius: 12,
   },
   addressSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   address: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.neutrals.gray,
-    marginLeft: 12,
     flex: 1,
-    lineHeight: 22,
+    marginLeft: 6,
+    lineHeight: 18,
   },
   itemsSection: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   itemsLabel: {
     fontSize: 12,
+    fontWeight: '500',
     color: colors.neutrals.gray,
-    fontWeight: '400',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   items: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.neutrals.dark,
-    lineHeight: 22,
-    fontWeight: '400',
+    lineHeight: 18,
   },
   metaInfo: {
     flexDirection: 'row',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 24,
   },
   metaText: {
     fontSize: 12,
     color: colors.neutrals.gray,
-    marginLeft: 6,
+    marginLeft: 4,
     fontWeight: '400',
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   actionBtn: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 25,
+    minWidth: 120,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryBtn: {
     backgroundColor: colors.neutrals.dark,
   },
-  cameraBtn: {
-    backgroundColor: colors.primary.yellow2,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
   secondaryBtn: {
     backgroundColor: colors.neutrals.lightGray,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
     borderWidth: 1,
     borderColor: colors.neutrals.gray,
   },
+  cameraBtn: {
+    backgroundColor: colors.primary.yellow2,
+  },
   actionBtnText: {
+    fontSize: 13,
+    fontWeight: '500',
     color: 'white',
-    fontSize: 14,
-    fontWeight: '400',
+    marginLeft: 4,
   },
   secondaryBtnText: {
+    fontSize: 13,
+    fontWeight: '500',
     color: colors.neutrals.gray,
-    fontSize: 14,
-    fontWeight: '400',
+    marginLeft: 4,
   },
   emptyState: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 80,
+    justifyContent: 'center',
+    paddingVertical: 40,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: '500',
     color: colors.neutrals.gray,
-    fontWeight: '300',
-    marginTop: 20,
+    marginTop: 12,
   },
   emptySubtext: {
     fontSize: 14,
     color: colors.neutrals.gray,
-    marginTop: 8,
+    marginTop: 4,
     textAlign: 'center',
-    fontWeight: '400',
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '70%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    maxHeight: '80%',
   },
   modalHeader: {
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutrals.lightGray,
+    alignItems: 'center',
+    marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '300',
+    fontSize: 18,
+    fontWeight: '600',
     color: colors.neutrals.dark,
-    textAlign: 'center',
-    letterSpacing: -0.5,
   },
   modalSubtitle: {
     fontSize: 14,
     color: colors.neutrals.gray,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  issuesList: {
-    maxHeight: 300,
-  },
-  issueOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutrals.lightGray,
-  },
-  issueText: {
-    fontSize: 16,
-    color: colors.neutrals.dark,
-    fontWeight: '400',
-  },
-  notificationsList: {
-    maxHeight: 300,
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutrals.lightGray,
-  },
-  unreadNotification: {
-    backgroundColor: colors.neutrals.lightGray + '30',
-  },
-  notificationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary.yellow2,
-    marginTop: 8,
-    marginRight: 12,
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationTitle: {
-    fontSize: 14,
-    color: colors.neutrals.dark,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  notificationText: {
-    fontSize: 13,
-    color: colors.neutrals.gray,
-    lineHeight: 18,
-    fontWeight: '400',
-    marginBottom: 4,
-  },
-  notificationTime: {
-    fontSize: 11,
-    color: colors.neutrals.gray,
-    fontWeight: '400',
+    marginTop: 4,
   },
   cancelButton: {
-    padding: 24,
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 12,
+    paddingVertical: 12,
     alignItems: 'center',
+    marginTop: 16,
   },
   cancelButtonText: {
     fontSize: 16,
-    color: colors.neutrals.gray,
-    fontWeight: '400',
-  },
-  // Delivery Details Modal Styles
-  detailsModalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
-    paddingBottom: 20,
-  },
-  detailsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutrals.lightGray,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  headerInfo: {
-    flex: 1,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  detailsTitle: {
-    fontSize: 20,
-    fontWeight: '400',
-    color: colors.neutrals.dark,
-    letterSpacing: -0.5,
-  },
-  detailsAmount: {
-    fontSize: 20,
-    fontWeight: '300',
-    color: colors.neutrals.dark,
-    letterSpacing: -0.5,
-  },
-  detailsSection: {
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutrals.lightGray,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    color: colors.neutrals.gray,
     fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
-  },
-  customerDetails: {
-    backgroundColor: colors.neutrals.lightGray,
-    borderRadius: 16,
-    padding: 16,
-  },
-  customerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  customerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  customerText: {
-    flex: 1,
-  },
-  customerDetailName: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.neutrals.dark,
-    marginBottom: 4,
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  phoneNumber: {
-    fontSize: 14,
     color: colors.neutrals.gray,
-    fontWeight: '400',
-  },
-  addressDetails: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.neutrals.lightGray,
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
-  },
-  addressDetailText: {
-    fontSize: 15,
-    color: colors.neutrals.dark,
-    lineHeight: 22,
-    flex: 1,
-    fontWeight: '400',
-  },
-  itemsDetails: {
-    backgroundColor: colors.neutrals.lightGray,
-    borderRadius: 16,
-    padding: 16,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  itemDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary.yellow2,
-    marginRight: 12,
-  },
-  itemText: {
-    fontSize: 15,
-    color: colors.neutrals.dark,
-    fontWeight: '400',
-  },
-  deliveryInfo: {
-    backgroundColor: colors.neutrals.lightGray,
-    borderRadius: 16,
-    padding: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  infoIcon: {
-    width: 24,
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: colors.neutrals.gray,
-    fontWeight: '400',
-    flex: 1,
-  },
-  infoValue: {
-    fontSize: 14,
-    color: colors.neutrals.dark,
-    fontWeight: '500',
-  },
-  detailsActions: {
-    padding: 24,
-    gap: 12,
-  },
-  detailsActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
-  },
-  mapActionBtn: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: colors.primary.yellow2,
-  },
-  mapActionText: {
-    color: colors.primary.yellow2,
-    fontSize: 16,
-    fontWeight: '400',
-  },
-  issueBtn: {
-    backgroundColor: colors.neutrals.lightGray,
-    borderWidth: 1,
-    borderColor: colors.neutrals.gray,
-  },
-  issueBtnText: {
-    color: colors.neutrals.gray,
-    fontSize: 16,
-    fontWeight: '400',
   },
 });
 
