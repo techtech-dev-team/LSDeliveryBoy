@@ -6,9 +6,10 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Platform
 } from 'react-native';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 import { earningsAPI } from '../utils/earnings';
 
 const Earnings = ({ navigation }) => {
@@ -165,6 +166,7 @@ const Earnings = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 45,
     flex: 1,
     backgroundColor: 'white',
   },
@@ -176,10 +178,10 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '300',
+    fontSize: typography.fontSize['3xl'],
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
-    letterSpacing: -0.5,
+    letterSpacing: typography.letterSpacing.tight,
   },
   withdrawButton: {
     backgroundColor: colors.primary.yellow2,
@@ -188,8 +190,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   withdrawText: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: typography.fontSize.base,
+    fontFamily: typography.fontFamily.medium,
     color: 'white',
   },
   periodFilter: {
@@ -209,12 +211,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary.yellow2,
   },
   periodText: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: typography.fontSize.base,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.gray,
   },
   activePeriodText: {
     color: 'white',
+    fontFamily: typography.fontFamily.medium,
   },
   totalCard: {
     backgroundColor: 'white',
@@ -227,16 +230,16 @@ const styles = StyleSheet.create({
     borderColor: colors.neutrals.lightGray,
   },
   totalLabel: {
-    fontSize: 14,
+    fontSize: typography.fontSize.base,
     color: colors.neutrals.gray,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
     marginBottom: 8,
   },
   totalAmount: {
-    fontSize: 36,
-    fontWeight: '300',
+    fontSize: typography.fontSize['6xl'],
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutrals.dark,
-    letterSpacing: -1,
+    letterSpacing: typography.letterSpacing.tight,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -258,26 +261,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statTitle: {
-    fontSize: 12,
+    fontSize: typography.fontSize.sm,
     color: colors.neutrals.gray,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
     marginLeft: 8,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '300',
+    fontSize: typography.fontSize.xl,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
-    letterSpacing: -0.5,
+    letterSpacing: typography.letterSpacing.tight,
   },
   recentSection: {
     paddingHorizontal: 32,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '300',
+    fontSize: typography.fontSize.xl,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     marginBottom: 16,
-    letterSpacing: -0.5,
+    letterSpacing: typography.letterSpacing.tight,
   },
   earningItem: {
     flexDirection: 'row',
@@ -304,18 +307,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   earningId: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: typography.fontSize.base,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.dark,
   },
   earningTime: {
-    fontSize: 12,
+    fontSize: typography.fontSize.sm,
+    fontFamily: typography.fontFamily.regular,
     color: colors.neutrals.gray,
     marginTop: 2,
   },
   earningAmount: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.fontSize.lg,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
   },
 });

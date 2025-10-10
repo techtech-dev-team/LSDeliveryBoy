@@ -10,7 +10,8 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    Platform
 } from 'react-native';
 import { colors } from '../components/colors';
 
@@ -322,6 +323,7 @@ const Maps = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop:Platform.OS === 'android' ? StatusBar.currentHeight : 45,
     backgroundColor: 'white',
   },
   header: {
