@@ -132,6 +132,7 @@ class DashboardAPI {
   async getAssignedDeliveries(page = 1, limit = 10) {
     try {
       const response = await this.makeRequest(`/delivery/deliveries?page=${page}&limit=${limit}`);
+      console.log('✅ Fetched assigned deliveries:', response.data);
       return {
         success: true,
         data: response.data,
@@ -313,6 +314,47 @@ class DashboardAPI {
       };
     } catch (error) {
       console.error('❌ getProfile - Error:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  // Get notifications
+  async getNotifications(page = 1, limit = 10) {
+    try {
+      const response = await this.makeRequest(`/delivery/notifications?page=${page}&limit=${limit}`);
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: {
+          notifications: [],
+          unreadCount: 0
+        }
+      };
+    }
+  }
+
+  // Mark notification as read
+  async markNotificationRead(notificationId) {
+    try {
+      const response = await this.makeRequest(`/delivery/notifications/${notificationId}/read`, {
+        method: 'PUT',
+      });
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
       return {
         success: false,
         error: error.message,

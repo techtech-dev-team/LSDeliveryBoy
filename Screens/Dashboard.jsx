@@ -117,176 +117,103 @@ const Dashboard = ({ navigation }) => {
         // Keep existing delivery boy info if API fails
       }
 
-      // Fetch dashboard data from API with fallback
-      let dashboardData;
+      // Fetch dashboard data from API
       try {
         const dashboardResponse = await dashboardAPI.getDashboard();
-        dashboardData = dashboardResponse;
-      } catch (dashboardError) {
-        console.log('Dashboard API failed, using mock data:', dashboardError);
-        // Mock dashboard data when API fails
-        dashboardData = {
-          success: true,
-          data: {
-            todayStats: {
-              totalOrders: 15,
-              completedOrders: 10,
-              earnings: 1250
-            },
-            currentStatus: 'online'
+        if (dashboardResponse.success) {
+          // Update dashboard stats
+          setDashboardStats({
+            todayStats: dashboardResponse.data.todayStats || {
+              totalOrders: 0,
+              completedOrders: 0,
+              earnings: 0
+            }
+          });
+          
+          // Set online status from API (only if not manually toggling)
+          if (dashboardResponse.data.currentStatus) {
+            setIsOnline(dashboardResponse.data.currentStatus === 'online');
           }
-        };
-      }
-      
-      if (dashboardData.success) {
-        // Update dashboard stats
-        setDashboardStats({
-          todayStats: dashboardData.data.todayStats || {
-            totalOrders: 15,
-            completedOrders: 10,
-            earnings: 1250
-          }
-        });
-        
-        // Set online status from API (only if not manually toggling)
-        if (dashboardData.data.currentStatus) {
-          setIsOnline(dashboardData.data.currentStatus === 'online');
         }
+      } catch (dashboardError) {
+        console.error('Dashboard API error:', dashboardError);
+        // Keep existing dashboard stats if API fails
       }
 
-      // Fetch assigned deliveries with fallback
-      let deliveriesData;
+      // Fetch assigned deliveries from API
       try {
         const deliveriesResponse = await dashboardAPI.getAssignedDeliveries();
-        deliveriesData = deliveriesResponse;
-      } catch (deliveriesError) {
-        console.log('Deliveries API failed, using mock data:', deliveriesError);
-        // Mock deliveries data when API fails
-        deliveriesData = {
-          success: true,
-          data: {
-            orders: [
-              {
-                _id: 'ORD001',
-                orderNumber: 'ORD001',
-                customer: {
-                  firstName: 'Rahul',
-                  lastName: 'Sharma',
-                  phoneNumber: '+91 9876543210'
-                },
-                deliveryAddress: 'House No. 123, Sector 15, Gurgaon, Haryana 122001',
-                items: [
-                  { quantity: 2, product: { name: 'Amul Milk 1L' } },
-                  { quantity: 1, product: { name: 'Bread Packet' } }
-                ],
-                totalAmount: 285,
-                status: 'assigned',
-                vendor: {
-                  _id: 'VENDOR001',
-                  storeName: 'Sharma General Store',
-                  address: 'Shop 45, Main Market, Gurgaon'
-                },
-                deliveryDistance: '2.5 km',
-                estimatedDeliveryTime: '25 mins'
-              },
-              {
-                _id: 'ORD002',
-                orderNumber: 'ORD002',
-                customer: {
-                  firstName: 'Priya',
-                  lastName: 'Singh',
-                  phoneNumber: '+91 8765432109'
-                },
-                deliveryAddress: 'Flat 205, Tower B, DLF Phase 2, Gurgaon',
-                items: [
-                  { quantity: 1, product: { name: 'Rice 5kg' } },
-                  { quantity: 3, product: { name: 'Maggi Noodles' } }
-                ],
-                totalAmount: 450,
-                status: 'picked_up',
-                vendor: {
-                  _id: 'VENDOR002',
-                  storeName: 'City Mart',
-                  address: 'Plot 67, Udyog Vihar, Gurgaon'
-                },
-                deliveryDistance: '4.2 km',
-                estimatedDeliveryTime: '35 mins'
-              },
-              {
-                _id: 'ORD003',
-                orderNumber: 'ORD003',
-                customer: {
-                  firstName: 'Amit',
-                  lastName: 'Kumar',
-                  phoneNumber: '+91 7654321098'
-                },
-                deliveryAddress: 'B-204, Sushant Lok, Phase 1, Gurgaon',
-                items: [
-                  { quantity: 2, product: { name: 'Coca Cola 500ml' } },
-                  { quantity: 1, product: { name: 'Lay\'s Chips' } }
-                ],
-                totalAmount: 180,
-                status: 'assigned',
-                vendor: {
-                  _id: 'VENDOR003',
-                  storeName: 'Quick Mart',
-                  address: 'Near Metro Station, Gurgaon'
-                },
-                deliveryDistance: '1.8 km',
-                estimatedDeliveryTime: '20 mins'
+        if (deliveriesResponse.success) {
+          // Transform API data to match component format
+          const transformedDeliveries = deliveriesResponse.data.orders.map(order => {
+            // Handle address object or string
+            let addressText = 'Address not available';
+            if (order.deliveryAddress) {
+              if (typeof order.deliveryAddress === 'string') {
+                addressText = order.deliveryAddress;
+              } else if (typeof order.deliveryAddress === 'object') {
+                // Extract address from object structure
+                const addr = order.deliveryAddress;
+                const parts = [
+                  addr.address,
+                  addr.landmark,
+                  addr.city,
+                  addr.state,
+                  addr.pincode
+                ].filter(Boolean);
+                addressText = parts.length > 0 ? parts.join(', ') : 'Address not available';
               }
-            ]
-          }
-        };
-      }
-      
-      if (deliveriesData.success) {
-        // Transform API data to match component format
-        const transformedDeliveries = deliveriesData.data.orders.map(order => {
-          // Handle address object or string
-          let addressText = 'Address not available';
-          if (order.deliveryAddress) {
-            if (typeof order.deliveryAddress === 'string') {
-              addressText = order.deliveryAddress;
-            } else if (typeof order.deliveryAddress === 'object') {
-              // Extract address from object structure
-              const addr = order.deliveryAddress;
-              const parts = [
-                addr.address,
-                addr.landmark,
-                addr.city,
-                addr.state,
-                addr.pincode
-              ].filter(Boolean);
-              addressText = parts.length > 0 ? parts.join(', ') : 'Address not available';
             }
-          } else if (order.vendor?.address) {
-            addressText = order.vendor.address;
-          }
 
-          return {
-            id: order._id || order.orderNumber,
-            customerName: `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || order.customer?.name || 'Unknown Customer',
-            customerPhone: order.customer?.phoneNumber || '',
-            address: addressText,
-            items: order.items?.map(item => 
-              `${item.quantity}x ${item.product?.name || item.name || 'Item'}`
-            ) || ['Items not specified'],
-            amount: `₹${order.totalAmount || 0}`,
-            status: order.status || 'assigned',
-            distance: order.deliveryDistance || 'N/A',
-            estimatedTime: order.estimatedDeliveryTime || 'N/A',
-            assignedBy: 'system',
-            assignedVendor: order.vendor?._id || null,
-            orderType: 'lalaji_store',
-            priority: order.priority || 'normal',
-            vendorName: order.vendor?.storeName || '',
-            pickupAddress: order.vendor?.address || ''
-          };
-        });
-        
-        setDeliveries(transformedDeliveries);
-        console.log(`📦 Loaded ${transformedDeliveries.length} delivery orders`);
+            // Handle customer name
+            let customerName = 'Unknown Customer';
+            if (order.customer) {
+              if (order.customer.firstName || order.customer.lastName) {
+                customerName = `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim();
+              } else if (order.customer.name) {
+                customerName = order.customer.name;
+              }
+            }
+
+            // Handle vendor information
+            let vendorName = '';
+            let pickupAddress = '';
+            if (order.vendors && order.vendors.length > 0) {
+              const firstVendor = order.vendors[0];
+              if (firstVendor.vendor) {
+                vendorName = firstVendor.vendor.vendorInfo?.businessName || firstVendor.vendor.name || '';
+                pickupAddress = firstVendor.vendor.vendorInfo?.businessAddress?.address || '';
+              }
+            }
+
+            return {
+              id: order._id || order.orderNumber,
+              customerName: customerName,
+              customerPhone: order.customer?.phoneNumber || '',
+              address: addressText,
+              items: order.items?.map(item => {
+                const productName = item.product?.name || item.name || 'Item';
+                return `${item.quantity}x ${productName}`;
+              }) || ['Items not specified'],
+              amount: `₹${order.pricing?.total || order.totalAmount || 0}`,
+              status: order.status || 'assigned',
+              distance: order.deliveryDistance || 'N/A',
+              estimatedTime: order.estimatedDeliveryTime || 'N/A',
+              assignedBy: 'system',
+              assignedVendor: order.vendors?.[0]?.vendor?._id || null,
+              orderType: 'lalaji_store',
+              priority: order.priority || 'normal',
+              vendorName: vendorName,
+              pickupAddress: pickupAddress
+            };
+          });
+          
+          setDeliveries(transformedDeliveries);
+          console.log(`📦 Loaded ${transformedDeliveries.length} delivery orders from API`);
+        }
+      } catch (deliveriesError) {
+        console.error('Deliveries API error:', deliveriesError);
+        // Keep existing deliveries if API fails
       }
       
       // Load notifications
@@ -303,7 +230,7 @@ const Dashboard = ({ navigation }) => {
           'Failed to load dashboard data. Please check your internet connection and try again.',
           [
             { text: 'Retry', onPress: () => loadDashboardData(true) },
-            { text: 'Continue Offline', style: 'cancel' }
+            { text: 'Continue', style: 'cancel' }
           ]
         );
       }
@@ -313,42 +240,21 @@ const Dashboard = ({ navigation }) => {
     }
   };  const loadNotifications = async () => {
     try {
-      // Mock notifications data
-      const mockNotifications = [
-        {
-          id: 'NOTIF_001',
-          type: 'assignment',
-          title: 'New Order Assigned',
-          message: 'You have been assigned order ORD001',
-          timestamp: new Date(),
-          isRead: false,
-          orderId: 'ORD001'
-        },
-        {
-          id: 'NOTIF_002',
-          type: 'earnings',
-          title: 'Payment Received',
-          message: 'You received ₹285 for order ORD999',
-          timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 mins ago
-          isRead: true,
-          orderId: null
-        },
-        {
-          id: 'NOTIF_003',
-          type: 'reminder',
-          title: 'Delivery Reminder',
-          message: 'Order ORD002 is ready for pickup',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-          isRead: false,
-          orderId: 'ORD002'
-        }
-      ];
-      
-      setNotificationsList(mockNotifications);
-      const unreadCount = mockNotifications.filter(n => !n.isRead).length;
-      setNotifications(unreadCount);
+      const response = await dashboardAPI.getNotifications();
+      if (response.success) {
+        setNotificationsList(response.data.notifications || []);
+        setNotifications(response.data.unreadCount || 0);
+        console.log(`📢 Loaded ${response.data.notifications?.length || 0} notifications from API`);
+      } else {
+        // Fallback to empty state if API fails
+        setNotificationsList([]);
+        setNotifications(0);
+      }
     } catch (error) {
       console.error('Notifications load error:', error);
+      // Fallback to empty state if API fails
+      setNotificationsList([]);
+      setNotifications(0);
     }
   };
 
@@ -381,7 +287,7 @@ const Dashboard = ({ navigation }) => {
     };
   }, [isOnline]);
 
-  const simulateNewDeliveryAssignment = async () => {
+  const refreshDeliveries = async () => {
     try {
       console.log('🔄 Manually refreshing orders...');
       
@@ -412,25 +318,68 @@ const Dashboard = ({ navigation }) => {
         
         // If going online and we got pending orders, update the deliveries list
         if (newStatus === 'online' && response.data.pendingOrders) {
-          const transformedOrders = response.data.pendingOrders.map(order => ({
-            id: order._id || order.orderNumber,
-            customerName: `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || 'Unknown Customer',
-            customerPhone: order.customer?.phoneNumber || '',
-            address: order.deliveryAddress?.address || order.vendor?.address || 'Address not available',
-            items: order.items?.map(item => 
-              `${item.quantity}x ${item.product?.name || item.name || 'Item'}`
-            ) || ['Items not specified'],
-            amount: `₹${order.pricing?.total || order.totalAmount || 0}`,
-            status: order.status || 'out_for_delivery',
-            distance: order.deliveryDistance || 'N/A',
-            estimatedTime: order.estimatedDeliveryTime || 'N/A',
-            assignedBy: 'system',
-            assignedVendor: order.vendor?._id || null,
-            orderType: 'lalaji_store',
-            priority: order.priority || 'normal',
-            vendorName: order.vendor?.storeName || '',
-            pickupAddress: order.vendor?.address || ''
-          }));
+          const transformedOrders = response.data.pendingOrders.map(order => {
+            // Handle address object or string
+            let addressText = 'Address not available';
+            if (order.deliveryAddress) {
+              if (typeof order.deliveryAddress === 'string') {
+                addressText = order.deliveryAddress;
+              } else if (typeof order.deliveryAddress === 'object') {
+                // Extract address from object structure
+                const addr = order.deliveryAddress;
+                const parts = [
+                  addr.address,
+                  addr.landmark,
+                  addr.city,
+                  addr.state,
+                  addr.pincode
+                ].filter(Boolean);
+                addressText = parts.length > 0 ? parts.join(', ') : 'Address not available';
+              }
+            }
+
+            // Handle customer name
+            let customerName = 'Unknown Customer';
+            if (order.customer) {
+              if (order.customer.firstName || order.customer.lastName) {
+                customerName = `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim();
+              } else if (order.customer.name) {
+                customerName = order.customer.name;
+              }
+            }
+
+            // Handle vendor information
+            let vendorName = '';
+            let pickupAddress = '';
+            if (order.vendors && order.vendors.length > 0) {
+              const firstVendor = order.vendors[0];
+              if (firstVendor.vendor) {
+                vendorName = firstVendor.vendor.vendorInfo?.businessName || firstVendor.vendor.name || '';
+                pickupAddress = firstVendor.vendor.vendorInfo?.businessAddress?.address || '';
+              }
+            }
+
+            return {
+              id: order._id || order.orderNumber,
+              customerName: customerName,
+              customerPhone: order.customer?.phoneNumber || '',
+              address: addressText,
+              items: order.items?.map(item => {
+                const productName = item.product?.name || item.name || 'Item';
+                return `${item.quantity}x ${productName}`;
+              }) || ['Items not specified'],
+              amount: `₹${order.pricing?.total || order.totalAmount || 0}`,
+              status: order.status || 'out_for_delivery',
+              distance: order.deliveryDistance || 'N/A',
+              estimatedTime: order.estimatedDeliveryTime || 'N/A',
+              assignedBy: 'system',
+              assignedVendor: order.vendors?.[0]?.vendor?._id || null,
+              orderType: 'lalaji_store',
+              priority: order.priority || 'normal',
+              vendorName: vendorName,
+              pickupAddress: pickupAddress
+            };
+          });
           
           setDeliveries(transformedOrders);
           
@@ -548,6 +497,37 @@ const Dashboard = ({ navigation }) => {
     setSelectedOrder(null);
   };
 
+  const handleNotificationClick = async (notification) => {
+    try {
+      // Mark notification as read if it's unread
+      if (!notification.isRead) {
+        await dashboardAPI.markNotificationRead(notification.id);
+        // Update local state
+        setNotificationsList(prev => 
+          prev.map(n => 
+            n.id === notification.id 
+              ? { ...n, isRead: true }
+              : n
+          )
+        );
+        // Update unread count
+        setNotifications(prev => Math.max(0, prev - 1));
+      }
+
+      // Handle notification action
+      if (notification.orderId) {
+        const delivery = filteredDeliveries.find(d => d.id === notification.orderId);
+        if (delivery) {
+          setSelectedDelivery(delivery);
+          setShowDeliveryDetails(true);
+          setShowNotifications(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling notification click:', error);
+    }
+  };
+
   const handleDeliveryCardPress = (delivery) => {
     setSelectedDelivery(delivery);
     setShowDeliveryDetails(true);
@@ -636,7 +616,7 @@ const Dashboard = ({ navigation }) => {
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
-        {(item.status === 'assigned' || item.status === 'out_for_delivery') && (
+        {item.status === 'assigned' && (
           <TouchableOpacity 
             style={[styles.actionBtn, styles.primaryBtn]}
             onPress={() => handleStatusUpdate(item.id, 'picked_up')}
@@ -648,13 +628,13 @@ const Dashboard = ({ navigation }) => {
         {item.status === 'picked_up' && (
           <TouchableOpacity 
             style={[styles.actionBtn, styles.primaryBtn]}
-            onPress={() => handleStatusUpdate(item.id, 'shipped')}
+            onPress={() => handleStatusUpdate(item.id, 'out_for_delivery')}
           >
             <Text style={styles.actionBtnText}>Out for Delivery</Text>
           </TouchableOpacity>
         )}
         
-        {(item.status === 'shipped' || item.status === 'out_for_delivery') && (
+        {item.status === 'out_for_delivery' && (
           <>
             <TouchableOpacity 
               style={[styles.actionBtn, styles.cameraBtn]}
@@ -794,11 +774,11 @@ const Dashboard = ({ navigation }) => {
       <View style={styles.deliveriesSection}>
         <View style={styles.deliveriesHeader}>
           <Text style={styles.sectionTitle}>
-            {deliveryBoyType === 'lalaji_store' ? 'System Assigned' : 'Vendor Assigned'} Deliveries ({filteredDeliveries.length})
+            {deliveryBoyType === 'lalaji_store' ? 'Assigned' : 'Vendor Assigned'} Deliveries ({filteredDeliveries.length})
           </Text>
           <TouchableOpacity 
             style={styles.testButton}
-            onPress={simulateNewDeliveryAssignment}
+            onPress={refreshDeliveries}
           >
             <Ionicons name="add-circle-outline" size={20} color={colors.primary.yellow2} />
           </TouchableOpacity>
@@ -891,16 +871,7 @@ const Dashboard = ({ navigation }) => {
                     styles.notificationItem,
                     !notification.isRead && styles.unreadNotification
                   ]}
-                  onPress={() => {
-                    if (notification.orderId) {
-                      const delivery = filteredDeliveries.find(d => d.id === notification.orderId);
-                      if (delivery) {
-                        setSelectedDelivery(delivery);
-                        setShowDeliveryDetails(true);
-                        setShowNotifications(false);
-                      }
-                    }
-                  }}
+                  onPress={() => handleNotificationClick(notification)}
                 >
                   <View style={[
                     styles.notificationDot,
