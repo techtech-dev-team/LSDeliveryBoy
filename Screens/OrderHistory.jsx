@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    FlatList,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  FlatList,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { colors } from '../components/colors';
 
@@ -86,21 +87,21 @@ const OrderHistory = ({ navigation }) => {
 
   const filterOrders = (orders) => {
     let filtered = orders;
-    
+
     // Filter by status
     if (selectedFilter !== 'all') {
       filtered = filtered.filter(order => order.status === selectedFilter);
     }
-    
+
     // Filter by search query
     if (searchQuery.trim()) {
-      filtered = filtered.filter(order => 
+      filtered = filtered.filter(order =>
         order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.address.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     return filtered;
   };
 
@@ -134,7 +135,7 @@ const OrderHistory = ({ navigation }) => {
   };
 
   const FilterTab = ({ filter, label, isActive, onPress }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[styles.filterTab, isActive && styles.activeFilterTab]}
       onPress={onPress}
     >
@@ -151,7 +152,7 @@ const OrderHistory = ({ navigation }) => {
 
   const renderOrderCard = ({ item }) => {
     const statusConfig = getStatusConfig(item.status);
-    
+
     return (
       <View style={styles.orderCard}>
         {/* Card Header */}
@@ -188,10 +189,10 @@ const OrderHistory = ({ navigation }) => {
             <Ionicons name="location-outline" size={16} color={colors.neutrals.gray} />
             <Text style={styles.address}>{item.address}</Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.mapButton}
-            onPress={() => navigation.navigate('Maps', { 
-              deliveries: [{ 
+            onPress={() => navigation.navigate('Maps', {
+              deliveries: [{
                 id: item.id,
                 customerName: item.customerName,
                 address: item.address,
@@ -221,14 +222,14 @@ const OrderHistory = ({ navigation }) => {
             <Text style={styles.detailLabel}>Order Time</Text>
             <Text style={styles.detailValue}>{item.orderTime}</Text>
           </View>
-          
+
           {item.status === 'completed' && (
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Delivery Time</Text>
               <Text style={styles.detailValue}>{item.deliveryTime}</Text>
             </View>
           )}
-          
+
           {item.status === 'cancelled' && item.reason && (
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Reason</Text>
@@ -245,7 +246,7 @@ const OrderHistory = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Order History</Text>
@@ -272,25 +273,25 @@ const OrderHistory = ({ navigation }) => {
 
       {/* Filter Tabs */}
       <View style={styles.filterSection}>
-        <FilterTab 
+        <FilterTab
           filter="all"
           label="All"
           isActive={selectedFilter === 'all'}
           onPress={() => setSelectedFilter('all')}
         />
-        <FilterTab 
+        <FilterTab
           filter="pending"
           label="Pending"
           isActive={selectedFilter === 'pending'}
           onPress={() => setSelectedFilter('pending')}
         />
-        <FilterTab 
+        <FilterTab
           filter="completed"
           label="Completed"
           isActive={selectedFilter === 'completed'}
           onPress={() => setSelectedFilter('completed')}
         />
-        <FilterTab 
+        <FilterTab
           filter="cancelled"
           label="Cancelled"
           isActive={selectedFilter === 'cancelled'}
@@ -314,7 +315,7 @@ const OrderHistory = ({ navigation }) => {
             {searchQuery ? 'No orders found' : `No ${selectedFilter === 'all' ? '' : selectedFilter} orders`}
           </Text>
           <Text style={styles.emptySubtext}>
-            {searchQuery 
+            {searchQuery
               ? 'Try adjusting your search terms'
               : 'Orders will appear here when available'
             }
@@ -327,6 +328,7 @@ const OrderHistory = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 45,
     flex: 1,
     backgroundColor: 'white',
   },

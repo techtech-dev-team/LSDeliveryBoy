@@ -299,35 +299,13 @@ const Profile = ({ navigation }) => {
               icon="help-circle-outline"
               title="Help & Support"
               subtitle="FAQ, Contact support"
-              onPress={() => {
-                Alert.alert(
-                  'Help & Support',
-                  'Need help? Contact us:',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { 
-                      text: 'Call Support', 
-                      onPress: () => Alert.alert('Support', 'Call: +91-1234567890')
-                    },
-                    { 
-                      text: 'Email Support', 
-                      onPress: () => Alert.alert('Support', 'Email: support@lalaji.com')
-                    }
-                  ]
-                );
-              }}
+              onPress={() => navigation.navigate('HelpSupport')}
             />
             <MenuItem 
               icon="document-outline"
               title="Terms & Privacy"
               subtitle="Legal information"
-              onPress={() => {
-                Alert.alert(
-                  'Terms & Privacy',
-                  'Legal documents and privacy policy information will be available in the app settings.',
-                  [{ text: 'OK' }]
-                );
-              }}
+              onPress={() => navigation.navigate('TermsPrivacy')}
             />
           </View>
 

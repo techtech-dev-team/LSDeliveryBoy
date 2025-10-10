@@ -6,7 +6,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Platform
 } from 'react-native';
 import { colors } from '../components/colors';
 import { earningsAPI } from '../utils/earnings';
@@ -165,6 +166,7 @@ const Earnings = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 45,
     flex: 1,
     backgroundColor: 'white',
   },
