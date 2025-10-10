@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
   ScrollView,
@@ -11,6 +11,12 @@ import {
   View,
   Platform
 } from 'react-native';
+import { 
+  ShieldCheckIcon,
+  BanknotesIcon,
+  CreditCardIcon,
+  BuildingLibraryIcon
+} from 'react-native-heroicons/outline';
 import { colors } from '../components/colors';
 import { dashboardAPI } from '../utils/dashboard';
 
@@ -18,14 +24,97 @@ const BankDetails = ({ navigation, route }) => {
   const { userProfile } = route.params || {};
   const [loading, setLoading] = useState(false);
   
-  // Initialize form data
+  // Debug: Log the userProfile to see what data we're getting
+  useEffect(() => {
+    console.log('🏦 BankDetails - UserProfile received:', JSON.stringify(userProfile, null, 2));
+    console.log('🏦 BankDetails - Bank Details:', userProfile?.deliveryBoyInfo?.bankDetails);
+  }, [userProfile]);
+  
+  // Initialize form data with empty defaults
   const [formData, setFormData] = useState({
-    accountHolderName: userProfile?.deliveryBoyInfo?.bankDetails?.accountHolderName || '',
-    accountNumber: userProfile?.deliveryBoyInfo?.bankDetails?.accountNumber || '',
-    ifsc: userProfile?.deliveryBoyInfo?.bankDetails?.ifsc || '',
-    bankName: userProfile?.deliveryBoyInfo?.bankDetails?.bankName || '',
-    upiId: userProfile?.deliveryBoyInfo?.bankDetails?.upiId || '',
+    accountHolderName: '',
+    accountNumber: '',
+    ifsc: '',
+    bankName: '',
+    upiId: '',
   });
+
+  // Update form data when userProfile changes
+  useEffect(() => {
+    if (userProfile?.deliveryBoyInfo?.bankDetails) {
+      const bankDetails = userProfile.deliveryBoyInfo.bankDetails;
+      
+      console.log('💳 Updating form data with bank details:', bankDetails);
+      
+      // Auto-detect bank name from IFSC if not available
+      let bankName = bankDetails.bankName || '';
+      if (!bankName && bankDetails.ifsc) {
+        bankName = getBankNameFromIFSC(bankDetails.ifsc);
+      }
+      
+      setFormData({
+        accountHolderName: bankDetails.accountHolderName || '',
+        accountNumber: bankDetails.accountNumber || '',
+        ifsc: bankDetails.ifsc || '',
+        bankName: bankName,
+        upiId: bankDetails.upiId || '',
+      });
+    }
+  }, [userProfile]);
+
+  // Function to get bank name from IFSC code
+  const getBankNameFromIFSC = (ifsc) => {
+    if (!ifsc || ifsc.length < 4) return '';
+    
+    const bankCodes = {
+      'SBIN': 'State Bank of India',
+      'HDFC': 'HDFC Bank',
+      'ICIC': 'ICICI Bank',
+      'AXIS': 'Axis Bank',
+      'KKBK': 'Kotak Mahindra Bank',
+      'INDB': 'IndusInd Bank',
+      'YESB': 'Yes Bank',
+      'FDRL': 'Federal Bank',
+      'IOBA': 'Indian Overseas Bank',
+      'CBIN': 'Central Bank of India',
+      'PUNB': 'Punjab National Bank',
+      'BKID': 'Bank of India',
+      'MAHB': 'Bank of Maharashtra',
+      'CORP': 'Corporation Bank',
+      'CNRB': 'Canara Bank',
+      'UBIN': 'Union Bank of India',
+      'ALLA': 'Allahabad Bank',
+      'ANDB': 'Andhra Bank',
+      'BARB': 'Bank of Baroda',
+      'VIJB': 'Vijaya Bank',
+      'IDIB': 'Indian Bank',
+      'ORBC': 'Oriental Bank of Commerce',
+      'PSIB': 'Punjab & Sind Bank',
+      'SYNB': 'Syndicate Bank',
+      'UCBA': 'UCO Bank',
+      'UTIB': 'Axis Bank',
+      'PAYTM': 'Paytm Payments Bank',
+      'AIRP': 'Airtel Payments Bank',
+    };
+    
+    const bankCode = ifsc.substring(0, 4).toUpperCase();
+    return bankCodes[bankCode] || '';
+  };
+
+  // Debug: Log form data when it changes
+  useEffect(() => {
+    console.log('💳 BankDetails - Form data updated:', JSON.stringify(formData, null, 2));
+  }, [formData]);
+
+  // Handle IFSC change and auto-detect bank name
+  const handleIFSCChange = (text) => {
+    const upperText = text.toUpperCase();
+    setFormData(prev => ({
+      ...prev,
+      ifsc: upperText,
+      bankName: getBankNameFromIFSC(upperText) || prev.bankName
+    }));
+  };
 
   const handleSave = async () => {
     try {
@@ -87,7 +176,7 @@ const BankDetails = ({ navigation, route }) => {
         {/* Info Section */}
         <View style={styles.infoSection}>
           <View style={styles.infoCard}>
-            <Ionicons name="shield-checkmark" size={24} color={colors.primary.yellow2} />
+            <ShieldCheckIcon size={24} color={colors.primary.yellow2} />
             <View style={styles.infoText}>
               <Text style={styles.infoTitle}>Secure Payment</Text>
               <Text style={styles.infoDescription}>
@@ -99,7 +188,10 @@ const BankDetails = ({ navigation, route }) => {
 
         {/* Account Holder Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Information</Text>
+          <View style={styles.sectionHeader}>
+            <CreditCardIcon size={20} color={colors.primary.yellow2} />
+            <Text style={styles.sectionTitle}>Account Information</Text>
+          </View>
           
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Account Holder Name *</Text>
@@ -115,7 +207,10 @@ const BankDetails = ({ navigation, route }) => {
 
         {/* Bank Account Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Bank Account Details</Text>
+          <View style={styles.sectionHeader}>
+            <BuildingLibraryIcon size={20} color={colors.primary.yellow2} />
+            <Text style={styles.sectionTitle}>Bank Account Details</Text>
+          </View>
           
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Account Number</Text>
@@ -133,7 +228,7 @@ const BankDetails = ({ navigation, route }) => {
             <TextInput
               style={styles.input}
               value={formData.ifsc}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, ifsc: text.toUpperCase() }))}
+              onChangeText={handleIFSCChange}
               placeholder="Enter IFSC code"
               autoCapitalize="characters"
             />
@@ -142,18 +237,24 @@ const BankDetails = ({ navigation, route }) => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Bank Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, formData.bankName && !userProfile?.deliveryBoyInfo?.bankDetails?.bankName && styles.autoDetectedInput]}
               value={formData.bankName}
               onChangeText={(text) => setFormData(prev => ({ ...prev, bankName: text }))}
               placeholder="Enter bank name"
               autoCapitalize="words"
             />
+            {formData.bankName && !userProfile?.deliveryBoyInfo?.bankDetails?.bankName && (
+              <Text style={styles.autoDetectedText}>Auto-detected from IFSC</Text>
+            )}
           </View>
         </View>
 
         {/* UPI Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>UPI Details (Alternative)</Text>
+          <View style={styles.sectionHeader}>
+            <BanknotesIcon size={20} color={colors.primary.yellow2} />
+            <Text style={styles.sectionTitle}>UPI Details (Alternative)</Text>
+          </View>
           
           <View style={styles.inputGroup}>
             <Text style={styles.label}>UPI ID</Text>
@@ -253,6 +354,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.neutrals.dark,
     marginBottom: 16,
+    marginLeft: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   inputGroup: {
     marginBottom: 16,
@@ -272,6 +379,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.neutrals.dark,
     backgroundColor: 'white',
+    textAlign: 'left',
+    textAlignVertical: 'center',
+  },
+  autoDetectedInput: {
+    borderColor: colors.primary.yellow2,
+    backgroundColor: colors.primary.yellow1,
+  },
+  autoDetectedText: {
+    fontSize: 11,
+    color: colors.primary.yellow2,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   note: {
     backgroundColor: colors.neutrals.lightGray,

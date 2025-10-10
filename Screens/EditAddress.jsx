@@ -11,6 +11,12 @@ import {
   View,
   Platform
 } from 'react-native';
+import { 
+  MapPinIcon, 
+  TrashIcon, 
+  PlusCircleIcon,
+  MapIcon
+} from 'react-native-heroicons/outline';
 import { colors } from '../components/colors';
 import { dashboardAPI } from '../utils/dashboard';
 
@@ -19,6 +25,18 @@ const EditAddress = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [mapSelectionType, setMapSelectionType] = useState('address'); // 'address' or 'service'
   
+  // Initialize form data with empty defaults
+  const [formData, setFormData] = useState({
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    latitude: null,
+    longitude: null,
+    serviceRadius: 5,
+    serviceAreas: [],
+  });
+
   // Debug: Log the userProfile to see what data we're getting
   useEffect(() => {
     console.log('🔍 EditAddress - UserProfile received:', JSON.stringify(userProfile, null, 2));
@@ -26,35 +44,48 @@ const EditAddress = ({ navigation, route }) => {
     console.log('🔍 EditAddress - ServiceAreas:', userProfile?.deliveryBoyInfo?.serviceAreas);
   }, [userProfile]);
   
-  // Initialize form data
-  const [formData, setFormData] = useState({
-    address: userProfile?.deliveryBoyInfo?.personalInfo?.address || '',
-    city: userProfile?.deliveryBoyInfo?.personalInfo?.city || '',
-    state: userProfile?.deliveryBoyInfo?.personalInfo?.state || '',
-    pincode: userProfile?.deliveryBoyInfo?.personalInfo?.pincode || '',
-    latitude: userProfile?.deliveryBoyInfo?.personalInfo?.latitude || null,
-    longitude: userProfile?.deliveryBoyInfo?.personalInfo?.longitude || null,
-    serviceRadius: userProfile?.deliveryBoyInfo?.serviceRadius || 5, // km
-    serviceAreas: (userProfile?.deliveryBoyInfo?.serviceAreas || []).map((area, index) => ({
-      // Convert MongoDB service area to frontend format
-      id: area._id?.toString() || area.id || `area-${index}`, // Use MongoDB _id or fallback
-      name: `Service Area ${index + 1}`, // Generate a display name
-      coordinates: area.coordinates || { latitude: area.latitude, longitude: area.longitude },
-      radius: area.radius || 2,
-    })),
-  });
+  // Update form data when userProfile changes
+  useEffect(() => {
+    if (userProfile?.deliveryBoyInfo) {
+      const personalInfo = userProfile.deliveryBoyInfo.personalInfo || {};
+      const serviceAreas = userProfile.deliveryBoyInfo.serviceAreas || [];
+      
+      console.log('📝 Updating form data with userProfile data');
+      console.log('📝 Personal info:', personalInfo);
+      
+      setFormData({
+        address: personalInfo.address || '',
+        city: personalInfo.city || '',
+        state: personalInfo.state || '',
+        pincode: personalInfo.pincode || '',
+        latitude: personalInfo.latitude || null,
+        longitude: personalInfo.longitude || null,
+        serviceRadius: userProfile.deliveryBoyInfo.serviceRadius || 5,
+        serviceAreas: serviceAreas.map((area, index) => ({
+          // Convert MongoDB service area to frontend format
+          id: area._id?.toString() || area.id || `area-${index}`, // Use MongoDB _id or fallback
+          name: `Service Area ${index + 1}`, // Generate a display name
+          coordinates: area.coordinates || { latitude: area.latitude, longitude: area.longitude },
+          radius: area.radius || 2,
+        })),
+      });
+    }
+  }, [userProfile]);
 
   const [editingServiceArea, setEditingServiceArea] = useState(null);
 
-  // Debug: Log form data when initialized
+  // Debug: Log form data when it changes
   useEffect(() => {
-    console.log('📝 EditAddress - Initial form data:', formData);
-  }, []);
-
-  // Debug: Log service areas when they change
-  useEffect(() => {
-    console.log('🗺️ Service areas updated:', formData.serviceAreas);
-  }, [formData.serviceAreas]);
+    console.log('📝 EditAddress - Form data updated:', JSON.stringify(formData, null, 2));
+    console.log('📝 Address fields:', {
+      address: formData.address,
+      city: formData.city,
+      state: formData.state,
+      pincode: formData.pincode,
+      latitude: formData.latitude,
+      longitude: formData.longitude
+    });
+  }, [formData]);
 
   const handleSave = async () => {
     try {
@@ -143,10 +174,16 @@ const EditAddress = ({ navigation, route }) => {
 
   const handleLocationSelected = (location) => {
     console.log('🎯 Location selected:', location);
-    console.log('🎯 Selection type:', mapSelectionType);
+    console.log('🎯 Current mapSelectionType:', mapSelectionType);
     console.log('🎯 Editing service area:', editingServiceArea);
     
-    if (mapSelectionType === 'address') {
+    // Determine selection type from the location object if mapSelectionType is unclear
+    const isServiceLocation = location.radius !== undefined || mapSelectionType === 'service';
+    
+    console.log('🔍 Is service location?', isServiceLocation);
+    console.log('🔍 Location has radius?', location.radius !== undefined);
+    
+    if (!isServiceLocation && mapSelectionType === 'address') {
       console.log('🏠 Updating address fields');
       setFormData(prev => ({
         ...prev,
@@ -157,7 +194,7 @@ const EditAddress = ({ navigation, route }) => {
         state: location.state || prev.state,
         pincode: location.pincode || prev.pincode,
       }));
-    } else if (mapSelectionType === 'service') {
+    } else {
       console.log('🗺️ Updating service areas');
       
       if (editingServiceArea) {
@@ -209,6 +246,11 @@ const EditAddress = ({ navigation, route }) => {
         });
       }
     }
+    
+    // Reset selection states after processing
+    console.log('🔄 Resetting selection states');
+    setMapSelectionType('address');
+    setEditingServiceArea(null);
   };
 
   const removeServiceArea = (identifier) => {
@@ -270,9 +312,12 @@ const EditAddress = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
             {formData.latitude && formData.longitude && (
-              <Text style={styles.locationInfo}>
-                📍 Location: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
-              </Text>
+              <View style={styles.locationInfoContainer}>
+                <MapPinIcon size={12} color={colors.primary.yellow2} />
+                <Text style={styles.locationInfo}>
+                  Location: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                </Text>
+              </View>
             )}
           </View>
 
@@ -317,20 +362,9 @@ const EditAddress = ({ navigation, route }) => {
               style={styles.addServiceButton}
               onPress={() => handleMapSelection('service')}
             >
-              <Ionicons name="add-circle" size={20} color={colors.primary.yellow2} />
+              <PlusCircleIcon size={20} color={colors.primary.yellow2} />
               <Text style={styles.addServiceText}>Add Area</Text>
             </TouchableOpacity>
-          </View>
-          
-          <View style={styles.serviceRadiusGroup}>
-            <Text style={styles.label}>Default Service Radius (km)</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.serviceRadius.toString()}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, serviceRadius: parseInt(text) || 5 }))}
-              placeholder="5"
-              keyboardType="numeric"
-            />
           </View>
 
           {formData.serviceAreas.length > 0 ? (
@@ -352,14 +386,14 @@ const EditAddress = ({ navigation, route }) => {
                       <View style={styles.serviceAreaInfo}>
                         <Text style={styles.serviceAreaName}>{area.name || 'Invalid Area'}</Text>
                         <Text style={[styles.serviceAreaLocation, { color: '#f44336' }]}>
-                          ❌ Invalid coordinates
+                          Invalid coordinates
                         </Text>
                       </View>
                       <TouchableOpacity 
                         style={styles.removeServiceButton}
                         onPress={() => removeServiceArea(area.id || index)}
                       >
-                        <Ionicons name="trash" size={16} color="#FF6B6B" />
+                        <TrashIcon size={16} color="#FF6B6B" />
                       </TouchableOpacity>
                     </View>
                   );
@@ -374,18 +408,21 @@ const EditAddress = ({ navigation, route }) => {
                       <Text style={styles.serviceAreaName}>
                         {area.name || `Service Area ${index + 1}`}
                       </Text>
-                      <Text style={styles.serviceAreaLocation}>
-                        📍 {latitude.toFixed(4)}, {longitude.toFixed(4)}
-                      </Text>
+                      <View style={styles.serviceAreaLocationContainer}>
+                        <MapPinIcon size={12} color={colors.neutrals.gray} />
+                        <Text style={styles.serviceAreaLocation}>
+                          {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                        </Text>
+                      </View>
                       <Text style={styles.serviceAreaRadius}>
-                        🔄 {area.radius || 2}km radius
+                        {area.radius || 2}km radius
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={styles.removeServiceButton}
                       onPress={() => removeServiceArea(area.id || index)}
                     >
-                      <Ionicons name="trash" size={16} color="#FF6B6B" />
+                      <TrashIcon size={16} color="#FF6B6B" />
                     </TouchableOpacity>
                   </View>
                 );
@@ -393,7 +430,7 @@ const EditAddress = ({ navigation, route }) => {
             </View>
           ) : (
             <View style={styles.emptyServiceAreas}>
-              <Ionicons name="location-outline" size={32} color={colors.neutrals.gray} />
+              <MapIcon size={32} color={colors.neutrals.gray} />
               <Text style={styles.emptyServiceText}>No service areas added</Text>
               <Text style={styles.emptyServiceSubtext}>
                 Add specific areas where you want to provide delivery services
@@ -496,8 +533,18 @@ const styles = StyleSheet.create({
   locationInfo: {
     fontSize: 12,
     color: colors.primary.yellow2,
-    marginTop: 4,
+    marginLeft: 4,
     fontWeight: '500',
+  },
+  locationInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  serviceAreaLocationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -552,6 +599,7 @@ const styles = StyleSheet.create({
   serviceAreaLocation: {
     fontSize: 12,
     color: colors.neutrals.gray,
+    marginLeft: 4,
   },
   serviceAreaRadius: {
     fontSize: 12,
