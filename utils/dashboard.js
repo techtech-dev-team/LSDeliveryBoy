@@ -13,7 +13,7 @@ class DashboardAPI {
       const token = await AsyncStorage.getItem(API_CONFIG.STORAGE_KEYS.TOKEN);
       return {
         ...API_CONFIG.DEFAULT_HEADERS,
-        'Authorization': token ? `Bearer ${token}` : '',
+        Authorization: token ? `Bearer ${token}` : '',
       };
     } catch (error) {
       console.error('Error getting auth headers:', error);
@@ -26,7 +26,7 @@ class DashboardAPI {
     try {
       const headers = await this.getAuthHeaders();
       const url = `${this.baseURL}${endpoint}`;
-      
+
       const response = await fetch(url, {
         ...options,
         headers: {
@@ -66,11 +66,11 @@ class DashboardAPI {
           todayStats: {
             totalOrders: 0,
             completedOrders: 0,
-            earnings: 0
+            earnings: 0,
           },
           pendingOrders: [],
-          currentStatus: 'offline'
-        }
+          currentStatus: 'offline',
+        },
       };
     }
   }
@@ -89,7 +89,7 @@ class DashboardAPI {
       });
 
       console.log(`✅ Availability updated to ${status}:`, response.data);
-      
+
       return {
         success: true,
         data: response.data,
@@ -132,7 +132,7 @@ class DashboardAPI {
   async getAssignedDeliveries(page = 1, limit = 10) {
     try {
       const response = await this.makeRequest(`/delivery/deliveries?page=${page}&limit=${limit}`);
-      console.log('✅ Fetched assigned deliveries:', response.data);
+      console.log('✅ Fetched assigned deliveries:', JSON.stringify(response.data, null, 2));
       return {
         success: true,
         data: response.data,
@@ -147,9 +147,9 @@ class DashboardAPI {
           pagination: {
             current: 1,
             pages: 1,
-            total: 0
-          }
-        }
+            total: 0,
+          },
+        },
       };
     }
   }
@@ -251,7 +251,7 @@ class DashboardAPI {
   async getDeliveryHistory(page = 1, limit = 10, startDate = null, endDate = null) {
     try {
       let endpoint = `/delivery/history?page=${page}&limit=${limit}`;
-      
+
       if (startDate && endDate) {
         endpoint += `&startDate=${startDate}&endDate=${endDate}`;
       }
@@ -271,10 +271,10 @@ class DashboardAPI {
           pagination: {
             current: 1,
             pages: 1,
-            total: 0
+            total: 0,
           },
-          earnings: 0
-        }
+          earnings: 0,
+        },
       };
     }
   }
@@ -296,8 +296,8 @@ class DashboardAPI {
           totalEarnings: 0,
           totalOrders: 0,
           avgEarningsPerOrder: 0,
-          earningsByDate: {}
-        }
+          earningsByDate: {},
+        },
       };
     }
   }
@@ -324,7 +324,9 @@ class DashboardAPI {
   // Get notifications
   async getNotifications(page = 1, limit = 10) {
     try {
-      const response = await this.makeRequest(`/delivery/notifications?page=${page}&limit=${limit}`);
+      const response = await this.makeRequest(
+        `/delivery/notifications?page=${page}&limit=${limit}`
+      );
       return {
         success: true,
         data: response.data,
@@ -336,8 +338,8 @@ class DashboardAPI {
         error: error.message,
         data: {
           notifications: [],
-          unreadCount: 0
-        }
+          unreadCount: 0,
+        },
       };
     }
   }
@@ -365,8 +367,11 @@ class DashboardAPI {
   // Update delivery boy profile
   async updateProfile(profileData) {
     try {
-      console.log('🔄 updateProfile - Sending data to /delivery/profile:', JSON.stringify(profileData, null, 2));
-      
+      console.log(
+        '🔄 updateProfile - Sending data to /delivery/profile:',
+        JSON.stringify(profileData, null, 2)
+      );
+
       const response = await this.makeRequest('/delivery/profile', {
         method: 'PUT',
         body: JSON.stringify(profileData),
