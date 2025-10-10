@@ -1,3 +1,25 @@
+// Fetch single order details by ID
+// Fetch single order details by ID (with populated fields)
+export const fetchOrderDetails = async (orderId, token) => {
+    try {
+        const response = await fetch(
+            `${API_CONFIG.getBaseURL()}/orders/${orderId}`,
+            {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+            }
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Failed to fetch order details');
+        return { success: true, order: data.data };
+    } catch (error) {
+        console.error('Error fetching order details:', error);
+        return { success: false, message: error.message || 'Server error', order: null };
+    }
+};
 import { API_CONFIG } from './apiConfig';
 
 // Fetch all orders (assigned + history) for delivery boy
