@@ -59,8 +59,6 @@ const Dashboard = ({ navigation }) => {
     approvalStatus: 'approved' // 'pending', 'approved', 'rejected'
   });
 
-
-
   const issueTypes = [
     'Order Not Found',
     'Customer Unavailable',
@@ -147,7 +145,7 @@ const Dashboard = ({ navigation }) => {
         if (deliveriesResponse.success) {
           // Transform API data to match component format
           const transformedDeliveries = deliveriesResponse.data.orders.map(order => {
-            // Handle address object or string
+            // Handle address object - use the actual structure from API
             let addressText = 'Address not available';
             if (order.deliveryAddress) {
               if (typeof order.deliveryAddress === 'string') {
@@ -166,14 +164,20 @@ const Dashboard = ({ navigation }) => {
               }
             }
 
-            // Handle customer name
+            // Handle customer name from customerInfo
             let customerName = 'Unknown Customer';
-            if (order.customer) {
+            let customerPhone = '';
+            
+            if (order.customerInfo) {
+              customerName = order.customerInfo.name || 'Unknown Customer';
+              customerPhone = order.customerInfo.phone || '';
+            } else if (order.customer) {
               if (order.customer.firstName || order.customer.lastName) {
                 customerName = `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim();
               } else if (order.customer.name) {
                 customerName = order.customer.name;
               }
+              customerPhone = order.customer.phoneNumber || '';
             }
 
             // Handle vendor information
@@ -183,20 +187,34 @@ const Dashboard = ({ navigation }) => {
               const firstVendor = order.vendors[0];
               if (firstVendor.vendor) {
                 vendorName = firstVendor.vendor.vendorInfo?.businessName || firstVendor.vendor.name || '';
-                pickupAddress = firstVendor.vendor.vendorInfo?.businessAddress?.address || '';
+                const businessAddr = firstVendor.vendor.vendorInfo?.businessAddress;
+                if (businessAddr) {
+                  const vendorParts = [
+                    businessAddr.address,
+                    businessAddr.city,
+                    businessAddr.state,
+                    businessAddr.pincode
+                  ].filter(Boolean);
+                  pickupAddress = vendorParts.join(', ');
+                }
               }
             }
 
+            // Handle items with proper quantity and name formatting
+            const itemsList = order.items?.map(item => {
+              const productName = item.product?.name || item.name || 'Item';
+              return `${item.quantity}x ${productName}`;
+            }) || ['Items not specified'];
+
             return {
               id: order._id || order.orderNumber,
+              orderNumber: order.orderNumber,
               customerName: customerName,
-              customerPhone: order.customer?.phoneNumber || '',
+              customerPhone: customerPhone,
+              customerEmail: order.customerInfo?.email || '',
               address: addressText,
-              items: order.items?.map(item => {
-                const productName = item.product?.name || item.name || 'Item';
-                return `${item.quantity}x ${productName}`;
-              }) || ['Items not specified'],
-              amount: `₹${order.pricing?.total || order.totalAmount || 0}`,
+              items: itemsList,
+              amount: `₹${(order.pricing?.total || order.totalAmount || 0).toFixed(2)}`,
               status: order.status || 'assigned',
               distance: order.deliveryDistance || 'N/A',
               estimatedTime: order.estimatedDeliveryTime || 'N/A',
@@ -205,7 +223,13 @@ const Dashboard = ({ navigation }) => {
               orderType: 'lalaji_store',
               priority: order.priority || 'normal',
               vendorName: vendorName,
-              pickupAddress: pickupAddress
+              pickupAddress: pickupAddress,
+              paymentMethod: order.payment?.method || 'cod',
+              paymentStatus: order.payment?.status || 'pending',
+              specialInstructions: order.specialInstructions || '',
+              coordinates: order.deliveryAddress?.coordinates || null,
+              createdAt: order.createdAt,
+              updatedAt: order.updatedAt
             };
           });
           
@@ -243,15 +267,21 @@ const Dashboard = ({ navigation }) => {
     try {
       console.log('📢 Loading notifications...');
       const response = await dashboardAPI.getNotifications();
-      console.log('📢 Notifications API response:', response);
+      console.log('📢 Notifications API response:', JSON.stringify(response, null, 2));
       
-      if (response.success) {
-        setNotificationsList(response.data.notifications || []);
-        setNotifications(response.data.unreadCount || 0);
-        console.log(`📢 Loaded ${response.data.notifications?.length || 0} notifications from API`);
+      if (response.success && response.data) {
+        const notifications = response.data.notifications || [];
+        const unreadCount = response.data.unreadCount || 0;
+        
+        console.log('📢 Setting notifications:', notifications);
+        console.log('📢 Setting unread count:', unreadCount);
+        
+        setNotificationsList(notifications);
+        setNotifications(unreadCount);
+        console.log(`📢 Loaded ${notifications.length} notifications from API`);
       } else {
         console.warn('📢 Notifications API failed:', response);
-        // Fallback to empty state if API fails
+        console.log('📢 Using empty state due to API failure');
         setNotificationsList([]);
         setNotifications(0);
       }
@@ -264,7 +294,7 @@ const Dashboard = ({ navigation }) => {
           id: 'mock_1',
           type: 'assignment',
           title: 'New Order Assigned',
-          message: 'You have been assigned a new delivery order',
+          message: 'You have been assigned a new delivery order #LLJ740433343',
           timestamp: new Date(),
           isRead: false,
           orderId: 'test_order_1'
@@ -273,7 +303,7 @@ const Dashboard = ({ navigation }) => {
           id: 'mock_2',
           type: 'reminder',
           title: 'Pickup Reminder',
-          message: 'Order is ready for pickup',
+          message: 'Order is ready for pickup from LALJI_STORE',
           timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 mins ago
           isRead: false,
           orderId: 'test_order_2'
@@ -289,7 +319,7 @@ const Dashboard = ({ navigation }) => {
         }
       ];
       
-      console.log('📢 Using mock notifications due to API error');
+      console.log('📢 Using mock notifications due to API error:', mockNotifications);
       setNotificationsList(mockNotifications);
       setNotifications(mockNotifications.filter(n => !n.isRead).length);
     }
@@ -356,7 +386,7 @@ const Dashboard = ({ navigation }) => {
         // If going online and we got pending orders, update the deliveries list
         if (newStatus === 'online' && response.data.pendingOrders) {
           const transformedOrders = response.data.pendingOrders.map(order => {
-            // Handle address object or string
+            // Handle address object - use the actual structure from API
             let addressText = 'Address not available';
             if (order.deliveryAddress) {
               if (typeof order.deliveryAddress === 'string') {
@@ -375,14 +405,20 @@ const Dashboard = ({ navigation }) => {
               }
             }
 
-            // Handle customer name
+            // Handle customer name from customerInfo
             let customerName = 'Unknown Customer';
-            if (order.customer) {
+            let customerPhone = '';
+            
+            if (order.customerInfo) {
+              customerName = order.customerInfo.name || 'Unknown Customer';
+              customerPhone = order.customerInfo.phone || '';
+            } else if (order.customer) {
               if (order.customer.firstName || order.customer.lastName) {
                 customerName = `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim();
               } else if (order.customer.name) {
                 customerName = order.customer.name;
               }
+              customerPhone = order.customer.phoneNumber || '';
             }
 
             // Handle vendor information
@@ -392,20 +428,34 @@ const Dashboard = ({ navigation }) => {
               const firstVendor = order.vendors[0];
               if (firstVendor.vendor) {
                 vendorName = firstVendor.vendor.vendorInfo?.businessName || firstVendor.vendor.name || '';
-                pickupAddress = firstVendor.vendor.vendorInfo?.businessAddress?.address || '';
+                const businessAddr = firstVendor.vendor.vendorInfo?.businessAddress;
+                if (businessAddr) {
+                  const vendorParts = [
+                    businessAddr.address,
+                    businessAddr.city,
+                    businessAddr.state,
+                    businessAddr.pincode
+                  ].filter(Boolean);
+                  pickupAddress = vendorParts.join(', ');
+                }
               }
             }
 
+            // Handle items with proper quantity and name formatting
+            const itemsList = order.items?.map(item => {
+              const productName = item.product?.name || item.name || 'Item';
+              return `${item.quantity}x ${productName}`;
+            }) || ['Items not specified'];
+
             return {
               id: order._id || order.orderNumber,
+              orderNumber: order.orderNumber,
               customerName: customerName,
-              customerPhone: order.customer?.phoneNumber || '',
+              customerPhone: customerPhone,
+              customerEmail: order.customerInfo?.email || '',
               address: addressText,
-              items: order.items?.map(item => {
-                const productName = item.product?.name || item.name || 'Item';
-                return `${item.quantity}x ${productName}`;
-              }) || ['Items not specified'],
-              amount: `₹${order.pricing?.total || order.totalAmount || 0}`,
+              items: itemsList,
+              amount: `₹${(order.pricing?.total || order.totalAmount || 0).toFixed(2)}`,
               status: order.status || 'out_for_delivery',
               distance: order.deliveryDistance || 'N/A',
               estimatedTime: order.estimatedDeliveryTime || 'N/A',
@@ -414,7 +464,13 @@ const Dashboard = ({ navigation }) => {
               orderType: 'lalaji_store',
               priority: order.priority || 'normal',
               vendorName: vendorName,
-              pickupAddress: pickupAddress
+              pickupAddress: pickupAddress,
+              paymentMethod: order.payment?.method || 'cod',
+              paymentStatus: order.payment?.status || 'pending',
+              specialInstructions: order.specialInstructions || '',
+              coordinates: order.deliveryAddress?.coordinates || null,
+              createdAt: order.createdAt,
+              updatedAt: order.updatedAt
             };
           });
           
@@ -608,7 +664,7 @@ const Dashboard = ({ navigation }) => {
       {/* Order Header */}
       <View style={styles.cardHeader}>
         <View style={styles.orderInfo}>
-          <Text style={styles.orderId}>{item.id}</Text>
+          <Text style={styles.orderId}>#{item.orderNumber || item.id}</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
             <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
           </View>
@@ -621,21 +677,60 @@ const Dashboard = ({ navigation }) => {
         <View style={styles.customerInfo}>
           <Ionicons name="person-outline" size={16} color={colors.neutrals.gray} />
           <Text style={styles.customerName}>{item.customerName}</Text>
+          {item.customerPhone && (
+            <TouchableOpacity 
+              style={styles.phoneButton}
+              onPress={() => {
+                // Handle phone call
+                console.log('Calling:', item.customerPhone);
+              }}
+            >
+              <Ionicons name="call-outline" size={16} color={colors.neutrals.dark} />
+            </TouchableOpacity>
+          )}
         </View>
-        <TouchableOpacity style={styles.phoneButton}>
-          <Ionicons name="call-outline" size={16} color={colors.neutrals.dark} />
-        </TouchableOpacity>
       </View>
 
-      {/* Address */}
+      {/* Payment Info */}
+      <View style={styles.paymentSection}>
+        <View style={styles.paymentInfo}>
+          <Ionicons name="card-outline" size={16} color={colors.neutrals.gray} />
+          <Text style={styles.paymentText}>
+            {item.paymentMethod?.toUpperCase() || 'COD'} - {item.paymentStatus || 'Pending'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Vendor/Pickup Info */}
+      {item.vendorName && (
+        <View style={styles.vendorSection}>
+          <Ionicons name="storefront-outline" size={16} color={colors.neutrals.gray} />
+          <View style={styles.vendorInfo}>
+            <Text style={styles.vendorName}>{item.vendorName}</Text>
+            {item.pickupAddress && (
+              <Text style={styles.pickupAddress}>{item.pickupAddress}</Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Delivery Address */}
       <View style={styles.addressSection}>
         <Ionicons name="location-outline" size={16} color={colors.neutrals.gray} />
         <Text style={styles.address}>{item.address}</Text>
       </View>
 
+      {/* Special Instructions */}
+      {item.specialInstructions && (
+        <View style={styles.instructionsSection}>
+          <Ionicons name="information-circle-outline" size={16} color={colors.primary.yellow1} />
+          <Text style={styles.instructions}>{item.specialInstructions}</Text>
+        </View>
+      )}
+
       {/* Items */}
       <View style={styles.itemsSection}>
-        <Text style={styles.itemsLabel}>Items:</Text>
+        <Text style={styles.itemsLabel}>Items ({item.items.length}):</Text>
         <Text style={styles.items}>{item.items.join(', ')}</Text>
       </View>
 
@@ -649,6 +744,14 @@ const Dashboard = ({ navigation }) => {
           <Ionicons name="time-outline" size={14} color={colors.neutrals.gray} />
           <Text style={styles.metaText}>{item.estimatedTime}</Text>
         </View>
+        {item.createdAt && (
+          <View style={styles.metaItem}>
+            <Ionicons name="calendar-outline" size={14} color={colors.neutrals.gray} />
+            <Text style={styles.metaText}>
+              {new Date(item.createdAt).toLocaleDateString()}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Action Buttons */}
@@ -900,47 +1003,58 @@ const Dashboard = ({ navigation }) => {
               <Text style={styles.modalTitle}>Notifications</Text>
             </View>
 
-            <ScrollView style={styles.notificationsList}>
-              {notificationsList.length > 0 ? (
-                notificationsList.map((notification, index) => (
-                  <TouchableOpacity 
-                    key={notification.id || index} 
-                    style={[
-                      styles.notificationItem,
-                      !notification.isRead && styles.unreadNotification
-                    ]}
-                    onPress={() => handleNotificationClick(notification)}
-                  >
-                    <View style={[
-                      styles.notificationDot,
-                      { backgroundColor: notification.isRead ? colors.neutrals.gray : colors.primary.yellow2 }
-                    ]} />
-                    <View style={styles.notificationContent}>
-                      <Text style={styles.notificationTitle}>{notification.title}</Text>
-                      <Text style={styles.notificationText}>{notification.message}</Text>
-                      <Text style={styles.notificationTime}>
-                        {notification.timestamp ? 
-                          (new Date(notification.timestamp)).toLocaleTimeString() : 
-                          'Now'
-                        }
-                      </Text>
-                    </View>
-                    <Ionicons 
-                      name={getNotificationIcon(notification.type)} 
-                      size={16} 
-                      color={colors.neutrals.gray} 
-                    />
-                  </TouchableOpacity>
-                ))
-              ) : (
-                <View style={styles.emptyNotifications}>
-                  <Ionicons name="notifications-outline" size={48} color={colors.neutrals.gray} />
-                  <Text style={styles.emptyNotificationsText}>No notifications yet</Text>
-                  <Text style={styles.emptyNotificationsSubtext}>
-                    You'll see order updates and messages here
-                  </Text>
-                </View>
-              )}
+            <ScrollView 
+              style={styles.notificationsList}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              showsVerticalScrollIndicator={true}
+            >
+              {(() => {
+                console.log('📢 Rendering notifications modal, list length:', notificationsList.length);
+                console.log('📢 Notifications list:', notificationsList);
+                return notificationsList.length > 0 ? (
+                  notificationsList.map((notification, index) => {
+                    console.log('📢 Rendering notification:', notification);
+                    return (
+                      <TouchableOpacity 
+                        key={notification.id || index} 
+                        style={[
+                          styles.notificationItem,
+                          !notification.isRead && styles.unreadNotification
+                        ]}
+                        onPress={() => handleNotificationClick(notification)}
+                      >
+                        <View style={[
+                          styles.notificationDot,
+                          { backgroundColor: notification.isRead ? colors.neutrals.gray : colors.primary.yellow2 }
+                        ]} />
+                        <View style={styles.notificationContent}>
+                          <Text style={styles.notificationTitle}>{notification.title || 'No Title'}</Text>
+                          <Text style={styles.notificationText}>{notification.message || 'No Message'}</Text>
+                          <Text style={styles.notificationTime}>
+                            {notification.timestamp ? 
+                              (new Date(notification.timestamp)).toLocaleTimeString() : 
+                              'Now'
+                            }
+                          </Text>
+                        </View>
+                        <Ionicons 
+                          name={getNotificationIcon(notification.type)} 
+                          size={16} 
+                          color={colors.neutrals.gray} 
+                        />
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <View style={styles.emptyNotifications}>
+                    <Ionicons name="notifications-outline" size={48} color={colors.neutrals.gray} />
+                    <Text style={styles.emptyNotificationsText}>No notifications yet</Text>
+                    <Text style={styles.emptyNotificationsSubtext}>
+                      You'll see order updates and messages here
+                    </Text>
+                  </View>
+                );
+              })()}
             </ScrollView>
 
             <TouchableOpacity
@@ -967,7 +1081,7 @@ const Dashboard = ({ navigation }) => {
           <View style={styles.detailsModalContent}>
             {selectedDelivery && (
               <>
-                {/* Modal Header */}
+                {/* Modal Header - Fixed at top */}
                 <View style={styles.detailsHeader}>
                   <TouchableOpacity 
                     onPress={() => setShowDeliveryDetails(false)}
@@ -976,7 +1090,7 @@ const Dashboard = ({ navigation }) => {
                     <Ionicons name="close" size={24} color={colors.neutrals.gray} />
                   </TouchableOpacity>
                   <View style={styles.headerInfo}>
-                    <Text style={styles.detailsTitle}>{selectedDelivery.id}</Text>
+                    <Text style={styles.detailsTitle}>#{selectedDelivery.orderNumber || selectedDelivery.id}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedDelivery.status) }]}>
                       <Text style={styles.statusText}>{getStatusText(selectedDelivery.status)}</Text>
                     </View>
@@ -984,146 +1098,229 @@ const Dashboard = ({ navigation }) => {
                   <Text style={styles.detailsAmount}>{selectedDelivery.amount}</Text>
                 </View>
 
-                {/* Customer Details */}
-                <View style={styles.detailsSection}>
-                  <Text style={styles.sectionLabel}>Customer Information</Text>
-                  <View style={styles.customerDetails}>
-                    <View style={styles.customerRow}>
-                      <View style={styles.customerIcon}>
-                        <Ionicons name="person" size={20} color={colors.primary.yellow2} />
+                {/* Scrollable Content */}
+                <ScrollView 
+                  style={styles.modalScrollView}
+                  showsVerticalScrollIndicator={true}
+                  bounces={true}
+                >
+                  {/* Customer Details */}
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionLabel}>Customer Information</Text>
+                    <View style={styles.customerDetails}>
+                      <View style={styles.customerRow}>
+                        <View style={styles.customerIcon}>
+                          <Ionicons name="person" size={20} color={colors.primary.yellow2} />
+                        </View>
+                        <View style={styles.customerText}>
+                          <Text style={styles.customerDetailName}>{selectedDelivery.customerName}</Text>
+                          {selectedDelivery.customerPhone && (
+                            <TouchableOpacity style={styles.phoneRow}>
+                              <Ionicons name="call" size={16} color={colors.neutrals.gray} />
+                              <Text style={styles.phoneNumber}>{selectedDelivery.customerPhone}</Text>
+                            </TouchableOpacity>
+                          )}
+                          {selectedDelivery.customerEmail && (
+                            <View style={styles.emailRow}>
+                              <Ionicons name="mail" size={16} color={colors.neutrals.gray} />
+                              <Text style={styles.emailText}>{selectedDelivery.customerEmail}</Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
-                      <View style={styles.customerText}>
-                        <Text style={styles.customerDetailName}>{selectedDelivery.customerName}</Text>
-                        <TouchableOpacity style={styles.phoneRow}>
-                          <Ionicons name="call" size={16} color={colors.neutrals.gray} />
-                          <Text style={styles.phoneNumber}>{selectedDelivery.customerPhone}</Text>
+                    </View>
+                  </View>
+
+                  {/* Payment Information */}
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionLabel}>Payment Information</Text>
+                    <View style={styles.paymentDetails}>
+                      <View style={styles.paymentRow}>
+                        <Ionicons name="card" size={20} color={colors.primary.yellow2} />
+                        <View style={styles.paymentText}>
+                          <Text style={styles.paymentMethod}>
+                            {selectedDelivery.paymentMethod?.toUpperCase() || 'COD'}
+                          </Text>
+                          <Text style={styles.paymentStatus}>
+                            Status: {selectedDelivery.paymentStatus || 'Pending'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Vendor/Pickup Information */}
+                  {selectedDelivery.vendorName && (
+                    <View style={styles.detailsSection}>
+                      <Text style={styles.sectionLabel}>Pickup Information</Text>
+                      <View style={styles.vendorDetails}>
+                        <Ionicons name="storefront" size={20} color={colors.primary.yellow2} />
+                        <View style={styles.vendorText}>
+                          <Text style={styles.vendorDetailName}>{selectedDelivery.vendorName}</Text>
+                          {selectedDelivery.pickupAddress && (
+                            <Text style={styles.pickupDetailAddress}>{selectedDelivery.pickupAddress}</Text>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Special Instructions */}
+                  {selectedDelivery.specialInstructions && (
+                    <View style={styles.detailsSection}>
+                      <Text style={styles.sectionLabel}>Special Instructions</Text>
+                      <View style={styles.instructionsDetails}>
+                        <Ionicons name="information-circle" size={20} color={colors.primary.yellow1} />
+                        <Text style={styles.instructionsDetailText}>
+                          {selectedDelivery.specialInstructions}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Delivery Address */}
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionLabel}>Delivery Address</Text>
+                    <View style={styles.addressDetails}>
+                      <Ionicons name="location" size={20} color={colors.primary.yellow2} />
+                      <Text style={styles.addressDetailText}>{selectedDelivery.address}</Text>
+                    </View>
+                  </View>
+
+                  {/* Order Items */}
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionLabel}>Order Items</Text>
+                    <View style={styles.itemsDetails}>
+                      {selectedDelivery.items.map((item, index) => (
+                        <View key={index} style={styles.itemRow}>
+                          <View style={styles.itemDot} />
+                          <Text style={styles.itemText}>{item}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Delivery Info */}
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionLabel}>Delivery Information</Text>
+                    <View style={styles.deliveryInfo}>
+                      <View style={styles.infoRow}>
+                        <View style={styles.infoIcon}>
+                          <Ionicons name="navigate" size={16} color={colors.neutrals.gray} />
+                        </View>
+                        <Text style={styles.infoLabel}>Distance:</Text>
+                        <Text style={styles.infoValue}>{selectedDelivery.distance}</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <View style={styles.infoIcon}>
+                          <Ionicons name="time" size={16} color={colors.neutrals.gray} />
+                        </View>
+                        <Text style={styles.infoLabel}>Estimated Time:</Text>
+                        <Text style={styles.infoValue}>{selectedDelivery.estimatedTime}</Text>
+                      </View>
+                      {selectedDelivery.createdAt && (
+                        <View style={styles.infoRow}>
+                          <View style={styles.infoIcon}>
+                            <Ionicons name="calendar" size={16} color={colors.neutrals.gray} />
+                          </View>
+                          <Text style={styles.infoLabel}>Order Date:</Text>
+                          <Text style={styles.infoValue}>
+                            {new Date(selectedDelivery.createdAt).toLocaleDateString()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Action Buttons */}
+                  <View style={styles.detailsActions}>
+                    {selectedDelivery.status === 'assigned' && (
+                      <TouchableOpacity 
+                        style={[styles.detailsActionBtn, styles.primaryActionBtn]}
+                        onPress={() => {
+                          handleStatusUpdate(selectedDelivery.id, 'picked_up');
+                          setShowDeliveryDetails(false);
+                        }}
+                      >
+                        <Ionicons name="bag-check" size={18} color="white" />
+                        <Text style={styles.primaryActionText}>Mark Picked Up</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    {selectedDelivery.status === 'picked_up' && (
+                      <TouchableOpacity 
+                        style={[styles.detailsActionBtn, styles.primaryActionBtn]}
+                        onPress={() => {
+                          handleStatusUpdate(selectedDelivery.id, 'out_for_delivery');
+                          setShowDeliveryDetails(false);
+                        }}
+                      >
+                        <Ionicons name="bicycle" size={18} color="white" />
+                        <Text style={styles.primaryActionText}>Out for Delivery</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    {selectedDelivery.status === 'out_for_delivery' && (
+                      <>
+                        <TouchableOpacity 
+                          style={[styles.detailsActionBtn, styles.cameraActionBtn]}
+                          onPress={() => {
+                            setShowDeliveryDetails(false);
+                            navigation.navigate('Camera', { 
+                              type: 'delivery-proof', 
+                              orderId: selectedDelivery.id 
+                            });
+                          }}
+                        >
+                          <Ionicons name="camera" size={18} color="white" />
+                          <Text style={styles.cameraActionText}>Take Photo</Text>
                         </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                </View>
+                        
+                        <TouchableOpacity 
+                          style={[styles.detailsActionBtn, styles.primaryActionBtn]}
+                          onPress={() => {
+                            handleStatusUpdate(selectedDelivery.id, 'delivered');
+                            setShowDeliveryDetails(false);
+                          }}
+                        >
+                          <Ionicons name="checkmark-circle" size={18} color="white" />
+                          <Text style={styles.primaryActionText}>Mark Delivered</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
 
-                {/* Delivery Address */}
-                <View style={styles.detailsSection}>
-                  <Text style={styles.sectionLabel}>Delivery Address</Text>
-                  <View style={styles.addressDetails}>
-                    <Ionicons name="location" size={20} color={colors.primary.yellow2} />
-                    <Text style={styles.addressDetailText}>{selectedDelivery.address}</Text>
-                  </View>
-                </View>
-
-                {/* Order Items */}
-                <View style={styles.detailsSection}>
-                  <Text style={styles.sectionLabel}>Order Items</Text>
-                  <View style={styles.itemsDetails}>
-                    {selectedDelivery.items.map((item, index) => (
-                      <View key={index} style={styles.itemRow}>
-                        <View style={styles.itemDot} />
-                        <Text style={styles.itemText}>{item}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Delivery Info */}
-                <View style={styles.detailsSection}>
-                  <Text style={styles.sectionLabel}>Delivery Information</Text>
-                  <View style={styles.deliveryInfo}>
-                    <View style={styles.infoRow}>
-                      <View style={styles.infoIcon}>
-                        <Ionicons name="navigate" size={16} color={colors.neutrals.gray} />
-                      </View>
-                      <Text style={styles.infoLabel}>Distance:</Text>
-                      <Text style={styles.infoValue}>{selectedDelivery.distance}</Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                      <View style={styles.infoIcon}>
-                        <Ionicons name="time" size={16} color={colors.neutrals.gray} />
-                      </View>
-                      <Text style={styles.infoLabel}>Estimated Time:</Text>
-                      <Text style={styles.infoValue}>{selectedDelivery.estimatedTime}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={styles.detailsActions}>
-                  {selectedDelivery.status === 'assigned' && (
                     <TouchableOpacity 
-                      style={[styles.detailsActionBtn, styles.primaryBtn]}
+                      style={[styles.detailsActionBtn, styles.mapActionBtn]}
                       onPress={() => {
-                        handleStatusUpdate(selectedDelivery.id, 'picked_up');
                         setShowDeliveryDetails(false);
+                        navigation.navigate('Maps', { 
+                          destination: selectedDelivery.coordinates,
+                          address: selectedDelivery.address 
+                        });
                       }}
                     >
-                      <Text style={styles.actionBtnText}>Mark as Picked Up</Text>
+                      <Ionicons name="map" size={18} color={colors.primary.yellow2} />
+                      <Text style={styles.mapActionText}>View on Map</Text>
                     </TouchableOpacity>
-                  )}
-                  
-                  {selectedDelivery.status === 'picked_up' && (
-                    <TouchableOpacity 
-                      style={[styles.detailsActionBtn, styles.primaryBtn]}
-                      onPress={() => {
-                        handleStatusUpdate(selectedDelivery.id, 'out_for_delivery');
-                        setShowDeliveryDetails(false);
-                      }}
-                    >
-                      <Text style={styles.actionBtnText}>Start Delivery</Text>
-                    </TouchableOpacity>
-                  )}
-                  
-                  {selectedDelivery.status === 'out_for_delivery' && (
-                    <>
+
+                    {selectedDelivery.status !== 'delivered' && (
                       <TouchableOpacity 
-                        style={[styles.detailsActionBtn, styles.cameraBtn]}
+                        style={[styles.detailsActionBtn, styles.issueBtn]}
                         onPress={() => {
+                          setSelectedOrder(selectedDelivery.id);
                           setShowDeliveryDetails(false);
-                          navigation.navigate('Camera', { 
-                            type: 'delivery-proof', 
-                            orderId: selectedDelivery.id 
-                          });
+                          setShowIssueModal(true);
                         }}
                       >
-                        <Ionicons name="camera" size={18} color="white" />
-                        <Text style={styles.actionBtnText}>Take Delivery Photo</Text>
+                        <Ionicons name="warning" size={18} color={colors.neutrals.gray} />
+                        <Text style={styles.issueBtnText}>Report Issue</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={[styles.detailsActionBtn, styles.primaryBtn]}
-                        onPress={() => {
-                          handleStatusUpdate(selectedDelivery.id, 'delivered');
-                          setShowDeliveryDetails(false);
-                        }}
-                      >
-                        <Text style={styles.actionBtnText}>Mark as Delivered</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-
-                  <TouchableOpacity 
-                    style={[styles.detailsActionBtn, styles.mapActionBtn]}
-                    onPress={() => {
-                      setShowDeliveryDetails(false);
-                      navigation.navigate('Maps', { delivery: selectedDelivery });
-                    }}
-                  >
-                    <Ionicons name="map" size={18} color={colors.primary.yellow2} />
-                    <Text style={styles.mapActionText}>View on Map</Text>
-                  </TouchableOpacity>
-
-                  {selectedDelivery.status !== 'delivered' && (
-                    <TouchableOpacity 
-                      style={[styles.detailsActionBtn, styles.issueBtn]}
-                      onPress={() => {
-                        setSelectedOrder(selectedDelivery.id);
-                        setShowDeliveryDetails(false);
-                        setShowIssueModal(true);
-                      }}
-                    >
-                      <Ionicons name="warning" size={18} color={colors.neutrals.gray} />
-                      <Text style={styles.issueBtnText}>Report Issue</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+                    )}
+                  </View>
+                  
+                  {/* Bottom padding for scroll */}
+                  <View style={styles.modalBottomPadding} />
+                </ScrollView>
               </>
             )}
           </View>
@@ -1396,6 +1593,55 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.neutrals.lightGray,
   },
+  paymentSection: {
+    marginBottom: 8,
+  },
+  paymentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentText: {
+    fontSize: 12,
+    color: colors.neutrals.gray,
+    fontFamily: typography.fontFamily.medium,
+    marginLeft: 6,
+  },
+  vendorSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  vendorInfo: {
+    flex: 1,
+    marginLeft: 6,
+  },
+  vendorName: {
+    fontSize: 13,
+    color: colors.neutrals.dark,
+    fontFamily: typography.fontFamily.medium,
+  },
+  pickupAddress: {
+    fontSize: 12,
+    color: colors.neutrals.gray,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  instructionsSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.primary.yellow1.replace('#', '#').slice(0, 7) + '10', // Light yellow background
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  instructions: {
+    fontSize: 12,
+    color: colors.neutrals.dark,
+    fontFamily: typography.fontFamily.medium,
+    marginLeft: 6,
+    flex: 1,
+    lineHeight: 16,
+  },
   addressSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1505,6 +1751,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 34,
     maxHeight: '80%',
+    minHeight: 560,
   },
   modalHeader: {
     alignItems: 'center',
@@ -1536,6 +1783,8 @@ const styles = StyleSheet.create({
   notificationsList: {
     flex: 1,
     paddingTop: 8,
+    minHeight: 200,
+    maxHeight: 400,
   },
   notificationItem: {
     flexDirection: 'row',
@@ -1554,11 +1803,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    minHeight: 80,
   },
   unreadNotification: {
     backgroundColor: colors.primary.yellow1,
     borderColor: colors.primary.yellow2,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
   notificationDot: {
     width: 8,
@@ -1634,9 +1884,17 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 16,
-    paddingHorizontal: 20,
-    paddingBottom: 34,
+    paddingHorizontal: 0, // Remove horizontal padding from main container
+    paddingBottom: 0, // Remove bottom padding from main container
     maxHeight: '90%',
+    flex: 1,
+  },
+  modalScrollView: {
+    flex: 1,
+    paddingHorizontal: 20, // Add horizontal padding to scrollable content
+  },
+  modalBottomPadding: {
+    height: 34, // Safe area padding at bottom
   },
   detailsHeader: {
     flexDirection: 'row',
@@ -1644,6 +1902,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 20,
     paddingBottom: 16,
+    paddingHorizontal: 20, // Add horizontal padding to header
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
   },
@@ -1705,11 +1964,82 @@ const styles = StyleSheet.create({
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 2,
   },
   phoneNumber: {
     fontSize: 14,
     color: colors.neutrals.gray,
     marginLeft: 6,
+  },
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  emailText: {
+    fontSize: 14,
+    color: colors.neutrals.gray,
+    marginLeft: 6,
+  },
+  paymentDetails: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 12,
+    padding: 12,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  paymentMethod: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.dark,
+  },
+  paymentStatus: {
+    fontSize: 14,
+    color: colors.neutrals.gray,
+    marginTop: 2,
+  },
+  vendorDetails: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 12,
+    padding: 12,
+  },
+  vendorText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  vendorDetailName: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.dark,
+  },
+  pickupDetailAddress: {
+    fontSize: 14,
+    color: colors.neutrals.gray,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  instructionsDetails: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.primary.yellow1.replace('#', '#').slice(0, 7) + '20', // Light yellow background
+    borderRadius: 12,
+    padding: 12,
+  },
+  instructionsDetailText: {
+    fontSize: 14,
+    color: colors.neutrals.dark,
+    marginLeft: 12,
+    flex: 1,
+    lineHeight: 18,
+    fontFamily: typography.fontFamily.medium,
   },
   addressDetails: {
     flexDirection: 'row',
@@ -1773,22 +2103,25 @@ const styles = StyleSheet.create({
     color: colors.neutrals.dark,
   },
   detailsActions: {
-    marginTop: 16,
-    gap: 12,
+    marginTop: 20,
+    gap: 16,
+    paddingHorizontal: 4,
   },
   detailsActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderRadius: 12,
-    gap: 8,
+    gap: 10,
+    minHeight: 50,
   },
   mapActionBtn: {
     backgroundColor: colors.primary.yellow1,
     borderWidth: 1,
     borderColor: colors.primary.yellow2,
+    marginTop: 8,
   },
   mapActionText: {
     fontSize: 14,
@@ -1804,6 +2137,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.gray,
+  },
+  primaryActionBtn: {
+    backgroundColor: colors.primary.yellow2,
+  },
+  primaryActionText: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+  },
+  cameraActionBtn: {
+    backgroundColor: colors.primary.yellow3,
+    marginBottom: 0,
+  },
+  cameraActionText: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
   },
 });
 

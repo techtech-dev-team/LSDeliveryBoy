@@ -59,6 +59,7 @@ export const API_CONFIG = {
       HISTORY: '/delivery/history',
       LOCATION: '/delivery/location',
       ISSUES: '/delivery/issues',
+      NOTIFICATIONS: '/delivery/notifications',
     }
   }
 };
