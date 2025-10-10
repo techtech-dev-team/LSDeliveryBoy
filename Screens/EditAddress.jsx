@@ -17,7 +17,7 @@ import {
   PlusCircleIcon,
   MapIcon
 } from 'react-native-heroicons/outline';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 import { dashboardAPI } from '../utils/dashboard';
 
 const EditAddress = ({ navigation, route }) => {

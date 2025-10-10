@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 
 const TermsPrivacy = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('terms'); // 'terms' or 'privacy'
@@ -254,11 +254,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   backButton: {
     padding: 8,
@@ -267,8 +262,8 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '500',
+    fontSize: typography.fontSize.xl,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     textAlign: 'center',
     marginRight: 40,
@@ -292,11 +287,6 @@ const styles = StyleSheet.create({
   },
   tabButtonActive: {
     backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   tabButtonText: {
     fontSize: 14,

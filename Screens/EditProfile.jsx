@@ -12,7 +12,7 @@ import {
     ActivityIndicator,
     Platform
 } from 'react-native';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 import { dashboardAPI } from '../utils/dashboard';
 
 const EditProfile = ({ navigation, route }) => {

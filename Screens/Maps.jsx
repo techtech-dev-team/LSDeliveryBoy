@@ -13,7 +13,7 @@ import {
     View,
     Platform
 } from 'react-native';
-import { colors } from '../components/colors';
+import { colors, typography } from '../components/colors';
 
 const Maps = ({ navigation, route }) => {
   const { deliveries = [], delivery = null } = route?.params || {};

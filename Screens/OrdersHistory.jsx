@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { colors } from '../components/colors';
 import { fetchAllOrders } from '../utils/ordershistory';
+import { colors, typography } from '../components/colors';
 
 const OrdersHistory = ({ navigation }) => {
   const [selectedTab, setSelectedTab] = useState('all'); // all, completed, cancelled, recent

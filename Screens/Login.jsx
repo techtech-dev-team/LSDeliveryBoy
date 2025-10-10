@@ -10,6 +10,7 @@ import {
   View
 } from 'react-native';
 import { authAPI, formatLoginData } from '../utils/auth';
+import { colors, typography } from '../components/colors';
 
 const Login = ({ navigation, onLoginSuccess }) => {
   const [formData, setFormData] = useState({
@@ -187,16 +188,16 @@ const styles = StyleSheet.create({
     marginBottom: 80,
   },
   welcomeTitle: {
-    fontSize: 32,
-    fontWeight: '300',
-    color: '#1a1a1a',
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.fontSize['4xl'],
+    color: colors.neutrals.dark,
     marginBottom: 8,
-    letterSpacing: -0.5,
+    letterSpacing: typography.letterSpacing.tight,
   },
   welcomeSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.lg,
+    color: colors.neutrals.gray,
   },
   formContainer: {
     marginBottom: 40,
@@ -205,13 +206,13 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   textInput: {
-    fontSize: 16,
-    color: '#1a1a1a',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.base,
+    color: colors.neutrals.dark,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
     paddingVertical: 16,
     paddingHorizontal: 4,
-    fontWeight: '400',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -221,11 +222,11 @@ const styles = StyleSheet.create({
   },
   passwordInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#1a1a1a',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.base,
+    color: colors.neutrals.dark,
     paddingVertical: 16,
     paddingHorizontal: 4,
-    fontWeight: '400',
   },
   eyeIcon: {
     padding: 8,
@@ -236,9 +237,9 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   forgotText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.sm,
+    color: colors.neutrals.gray,
   },
   loginButton: {
     backgroundColor: '#1a1a1a',
@@ -246,21 +247,17 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    
   },
   loginButtonDisabled: {
     backgroundColor: '#999',
     opacity: 0.7,
   },
   loginButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.base,
     color: 'white',
-    letterSpacing: 0.5,
+    letterSpacing: typography.letterSpacing.normal,
   },
   footer: {
     alignItems: 'center',
@@ -271,9 +268,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   registerText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#666',
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.base,
+    color: colors.neutrals.gray,
     textDecorationLine: 'underline',
   },
 });
