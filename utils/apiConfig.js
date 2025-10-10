@@ -47,8 +47,8 @@ export const API_CONFIG = {
       ME: '/auth/me',
     },
     UPLOAD: {
-      DOCUMENT: '/upload/document',
-      AVATAR: '/upload/avatar',
+      DOCUMENT: '/delivery/documents',
+      AVATAR: '/auth/avatar',
     },
     DELIVERY: {
       DASHBOARD: '/delivery/dashboard',
