@@ -242,25 +242,48 @@ const Dashboard = ({ navigation }) => {
       
       if (deliveriesData.success) {
         // Transform API data to match component format
-        const transformedDeliveries = deliveriesData.data.orders.map(order => ({
-          id: order._id || order.orderNumber,
-          customerName: `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || order.customer?.name || 'Unknown Customer',
-          customerPhone: order.customer?.phoneNumber || '',
-          address: order.deliveryAddress || order.vendor?.address || 'Address not available',
-          items: order.items?.map(item => 
-            `${item.quantity}x ${item.product?.name || item.name || 'Item'}`
-          ) || ['Items not specified'],
-          amount: `₹${order.totalAmount || 0}`,
-          status: order.status || 'assigned',
-          distance: order.deliveryDistance || 'N/A',
-          estimatedTime: order.estimatedDeliveryTime || 'N/A',
-          assignedBy: 'system',
-          assignedVendor: order.vendor?._id || null,
-          orderType: 'lalaji_store',
-          priority: order.priority || 'normal',
-          vendorName: order.vendor?.storeName || '',
-          pickupAddress: order.vendor?.address || ''
-        }));
+        const transformedDeliveries = deliveriesData.data.orders.map(order => {
+          // Handle address object or string
+          let addressText = 'Address not available';
+          if (order.deliveryAddress) {
+            if (typeof order.deliveryAddress === 'string') {
+              addressText = order.deliveryAddress;
+            } else if (typeof order.deliveryAddress === 'object') {
+              // Extract address from object structure
+              const addr = order.deliveryAddress;
+              const parts = [
+                addr.address,
+                addr.landmark,
+                addr.city,
+                addr.state,
+                addr.pincode
+              ].filter(Boolean);
+              addressText = parts.length > 0 ? parts.join(', ') : 'Address not available';
+            }
+          } else if (order.vendor?.address) {
+            addressText = order.vendor.address;
+          }
+
+          return {
+            id: order._id || order.orderNumber,
+            customerName: `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || order.customer?.name || 'Unknown Customer',
+            customerPhone: order.customer?.phoneNumber || '',
+            address: addressText,
+            items: order.items?.map(item => 
+              `${item.quantity}x ${item.product?.name || item.name || 'Item'}`
+            ) || ['Items not specified'],
+            amount: `₹${order.totalAmount || 0}`,
+            status: order.status || 'assigned',
+            distance: order.deliveryDistance || 'N/A',
+            estimatedTime: order.estimatedDeliveryTime || 'N/A',
+            assignedBy: 'system',
+            assignedVendor: order.vendor?._id || null,
+            orderType: 'lalaji_store',
+            priority: order.priority || 'normal',
+            vendorName: order.vendor?.storeName || '',
+            pickupAddress: order.vendor?.address || ''
+          };
+        });
         
         setDeliveries(transformedDeliveries);
         console.log(`📦 Loaded ${transformedDeliveries.length} delivery orders`);
@@ -393,12 +416,12 @@ const Dashboard = ({ navigation }) => {
             id: order._id || order.orderNumber,
             customerName: `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || 'Unknown Customer',
             customerPhone: order.customer?.phoneNumber || '',
-            address: order.deliveryAddress || order.vendor?.address || 'Address not available',
+            address: order.deliveryAddress?.address || order.vendor?.address || 'Address not available',
             items: order.items?.map(item => 
               `${item.quantity}x ${item.product?.name || item.name || 'Item'}`
             ) || ['Items not specified'],
-            amount: `₹${order.totalAmount || 0}`,
-            status: order.status || 'assigned',
+            amount: `₹${order.pricing?.total || order.totalAmount || 0}`,
+            status: order.status || 'out_for_delivery',
             distance: order.deliveryDistance || 'N/A',
             estimatedTime: order.estimatedDeliveryTime || 'N/A',
             assignedBy: 'system',
@@ -411,9 +434,16 @@ const Dashboard = ({ navigation }) => {
           
           setDeliveries(transformedOrders);
           
+          // Show enhanced message with auto-assignment info
+          let alertMessage = `You are now ${newStatus}. ${response.data.ordersCount || 0} orders found for delivery.`;
+          
+          if (response.data.autoAssignmentActive && response.data.newlyAssignedCount > 0) {
+            alertMessage += `\n🎯 ${response.data.newlyAssignedCount} new orders automatically assigned to you based on your location!`;
+          }
+          
           Alert.alert(
             'Status Updated',
-            `You are now ${newStatus}. ${response.data.ordersCount || 0} orders found for delivery.`,
+            alertMessage,
             [{ text: 'OK' }]
           );
         } else if (newStatus === 'online') {
@@ -606,7 +636,7 @@ const Dashboard = ({ navigation }) => {
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
-        {item.status === 'assigned' && (
+        {(item.status === 'assigned' || item.status === 'out_for_delivery') && (
           <TouchableOpacity 
             style={[styles.actionBtn, styles.primaryBtn]}
             onPress={() => handleStatusUpdate(item.id, 'picked_up')}
@@ -618,13 +648,13 @@ const Dashboard = ({ navigation }) => {
         {item.status === 'picked_up' && (
           <TouchableOpacity 
             style={[styles.actionBtn, styles.primaryBtn]}
-            onPress={() => handleStatusUpdate(item.id, 'out_for_delivery')}
+            onPress={() => handleStatusUpdate(item.id, 'shipped')}
           >
             <Text style={styles.actionBtnText}>Out for Delivery</Text>
           </TouchableOpacity>
         )}
         
-        {item.status === 'out_for_delivery' && (
+        {(item.status === 'shipped' || item.status === 'out_for_delivery') && (
           <>
             <TouchableOpacity 
               style={[styles.actionBtn, styles.cameraBtn]}
