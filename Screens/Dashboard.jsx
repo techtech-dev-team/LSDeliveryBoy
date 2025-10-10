@@ -435,18 +435,14 @@ const Dashboard = ({ navigation }) => {
     try {
       console.log('📢 Loading notifications...');
       const response = await dashboardAPI.getNotifications();
-      console.log('📢 Notifications API response:', JSON.stringify(response, null, 2));
       
       if (response.success && response.data) {
         const notifications = response.data.notifications || [];
         const unreadCount = response.data.unreadCount || 0;
         
-        console.log('📢 Setting notifications:', notifications);
-        console.log('📢 Setting unread count:', unreadCount);
         
         setNotificationsList(notifications);
         setNotifications(unreadCount);
-        console.log(`📢 Loaded ${notifications.length} notifications from API`);
       } else {
         console.warn('📢 Notifications API failed:', response);
         console.log('📢 Using empty state due to API failure');

@@ -99,7 +99,7 @@ const OrdersHistory = ({ navigation }) => {
     <TouchableOpacity style={styles.orderCard} onPress={() => navigation.navigate('OrderDetails', { order: item })}>
       <View style={styles.cardHeader}>
         <View style={styles.orderInfo}>
-          <Text style={styles.orderId}>#{item.orderNumber || item._id}</Text>
+          <Text style={styles.orderId}>#{item.orderNumber || item._id?.slice(-8) || 'N/A'}</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
             <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
           </View>
@@ -110,9 +110,14 @@ const OrdersHistory = ({ navigation }) => {
       <View style={styles.customerSection}>
         <View style={styles.customerInfo}>
           <Ionicons name="person-outline" size={16} color={colors.neutrals.gray} />
-          <Text style={styles.customerName}>
-            {item.customer?.name || item.customerInfo?.name || item.customerName || 'Customer'}
-          </Text>
+          <View style={styles.customerDetails}>
+            <Text style={styles.customerName}>
+              {item.customer?.name || item.customerInfo?.name || 'Customer'}
+            </Text>
+            {item.customerInfo?.phone && (
+              <Text style={styles.customerPhone}>📞 {item.customerInfo.phone}</Text>
+            )}
+          </View>
         </View>
         <Text style={styles.itemCount}>
           {Array.isArray(item.items) ? item.items.length : 
@@ -131,17 +136,20 @@ const OrdersHistory = ({ navigation }) => {
                 item.deliveryAddress.state,
                 item.deliveryAddress.pincode
               ].filter(Boolean).join(', ')
-            : typeof item.address === 'object' && item.address !== null
-            ? [
-                item.address.landmark,
-                item.address.address,
-                item.address.city,
-                item.address.state,
-                item.address.pincode
-              ].filter(Boolean).join(', ')
-            : item.address || 'Address not available'}
+            : 'Address not available'}
         </Text>
       </View>
+
+      {/* Show vendor info for completed orders */}
+      {item.status === 'delivered' && item.vendors && item.vendors.length > 0 && (
+        <View style={styles.vendorSection}>
+          <Ionicons name="storefront-outline" size={16} color={colors.neutrals.gray} />
+          <Text style={styles.vendorInfo}>
+            Store: {item.vendors[0]?.vendor?.vendorInfo?.businessName || 
+                    item.vendors[0]?.vendor?.name || 'Store'}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.timeSection}>
         <Text style={styles.dateTime}>
@@ -345,14 +353,23 @@ const styles = StyleSheet.create({
   },
   customerInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  customerDetails: {
+    marginLeft: 8,
     flex: 1,
   },
   customerName: {
     fontSize: 14,
     color: colors.neutrals.dark,
     fontWeight: '400',
-    marginLeft: 8,
+  },
+  customerPhone: {
+    fontSize: 12,
+    color: colors.neutrals.gray,
+    fontWeight: '400',
+    marginTop: 2,
   },
   itemCount: {
     fontSize: 12,
@@ -370,6 +387,18 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
     lineHeight: 20,
+  },
+  vendorSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  vendorInfo: {
+    fontSize: 13,
+    color: colors.primary.yellow2,
+    marginLeft: 8,
+    flex: 1,
+    fontWeight: '500',
   },
   timeSection: {
     alignItems: 'flex-end',

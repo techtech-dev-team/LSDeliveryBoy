@@ -304,9 +304,7 @@ class DashboardAPI {
   // Get delivery boy profile
   async getProfile() {
     try {
-      console.log('🔄 getProfile - Fetching from /delivery/profile');
       const response = await this.makeRequest('/delivery/profile');
-      console.log('✅ getProfile - Success:', response);
       return {
         success: true,
         data: response.data,

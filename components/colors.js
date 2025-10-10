@@ -12,7 +12,8 @@ export const colors = {
     dark: '#323650',      // Dark navy/black
     gray: '#C2C9D3',      // Medium gray
     lightGray: '#F2F6FF', // Light gray/blue
-    cream: '#FCE07B'      // Light cream/yellow
+    cream: '#FCE07B',     // Light cream/yellow
+    success: '#22C55E'    // Green for success states
   }
 };
 

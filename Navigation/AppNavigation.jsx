@@ -12,6 +12,7 @@ import BankDetails from '../Screens/BankDetails';
 import LocationPicker from '../Screens/LocationPicker';
 import HelpSupport from '../Screens/HelpSupport';
 import TermsPrivacy from '../Screens/TermsPrivacy';
+import OrderDetails from '../Screens/OrderDetails';
 import BottomNavigation from './BottomNavigation';
 import { authAPI } from '../utils/auth';
 
@@ -190,6 +191,15 @@ const AppNavigation = () => {
               presentation: 'card',
               animation: 'slide_from_right',
               title: 'Terms & Privacy'
+            }}
+          />
+          <Stack.Screen 
+            name="OrderDetails" 
+            component={OrderDetails}
+            options={{
+              presentation: 'card',
+              animation: 'slide_from_right',
+              title: 'Order Details'
             }}
           />
         </>
