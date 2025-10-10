@@ -50,6 +50,7 @@ const Dashboard = ({ navigation }) => {
     name: 'Sharma General Store',
     location: 'Sector 15, Gurgaon'
   }); // For vendor-managed delivery boys
+
   const [deliveryBoyInfo, setDeliveryBoyInfo] = useState({
     id: 'DB001',
     name: 'Raj Kumar',
@@ -240,21 +241,57 @@ const Dashboard = ({ navigation }) => {
     }
   };  const loadNotifications = async () => {
     try {
+      console.log('📢 Loading notifications...');
       const response = await dashboardAPI.getNotifications();
+      console.log('📢 Notifications API response:', response);
+      
       if (response.success) {
         setNotificationsList(response.data.notifications || []);
         setNotifications(response.data.unreadCount || 0);
         console.log(`📢 Loaded ${response.data.notifications?.length || 0} notifications from API`);
       } else {
+        console.warn('📢 Notifications API failed:', response);
         // Fallback to empty state if API fails
         setNotificationsList([]);
         setNotifications(0);
       }
     } catch (error) {
-      console.error('Notifications load error:', error);
-      // Fallback to empty state if API fails
-      setNotificationsList([]);
-      setNotifications(0);
+      console.error('📢 Notifications load error:', error);
+      
+      // For now, add some mock notifications for testing when API fails
+      const mockNotifications = [
+        {
+          id: 'mock_1',
+          type: 'assignment',
+          title: 'New Order Assigned',
+          message: 'You have been assigned a new delivery order',
+          timestamp: new Date(),
+          isRead: false,
+          orderId: 'test_order_1'
+        },
+        {
+          id: 'mock_2',
+          type: 'reminder',
+          title: 'Pickup Reminder',
+          message: 'Order is ready for pickup',
+          timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 mins ago
+          isRead: false,
+          orderId: 'test_order_2'
+        },
+        {
+          id: 'mock_3',
+          type: 'earnings',
+          title: 'Payment Received',
+          message: 'You received ₹45 for completed delivery',
+          timestamp: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
+          isRead: true,
+          orderId: 'test_order_3'
+        }
+      ];
+      
+      console.log('📢 Using mock notifications due to API error');
+      setNotificationsList(mockNotifications);
+      setNotifications(mockNotifications.filter(n => !n.isRead).length);
     }
   };
 
@@ -864,33 +901,46 @@ const Dashboard = ({ navigation }) => {
             </View>
 
             <ScrollView style={styles.notificationsList}>
-              {notificationsList.map((notification, index) => (
-                <TouchableOpacity 
-                  key={notification.id || index} 
-                  style={[
-                    styles.notificationItem,
-                    !notification.isRead && styles.unreadNotification
-                  ]}
-                  onPress={() => handleNotificationClick(notification)}
-                >
-                  <View style={[
-                    styles.notificationDot,
-                    { backgroundColor: notification.isRead ? colors.neutrals.gray : colors.primary.yellow2 }
-                  ]} />
-                  <View style={styles.notificationContent}>
-                    <Text style={styles.notificationTitle}>{notification.title}</Text>
-                    <Text style={styles.notificationText}>{notification.message}</Text>
-                    <Text style={styles.notificationTime}>
-                      {notification.timestamp?.toLocaleTimeString() || 'Now'}
-                    </Text>
-                  </View>
-                  <Ionicons 
-                    name={getNotificationIcon(notification.type)} 
-                    size={16} 
-                    color={colors.neutrals.gray} 
-                  />
-                </TouchableOpacity>
-              ))}
+              {notificationsList.length > 0 ? (
+                notificationsList.map((notification, index) => (
+                  <TouchableOpacity 
+                    key={notification.id || index} 
+                    style={[
+                      styles.notificationItem,
+                      !notification.isRead && styles.unreadNotification
+                    ]}
+                    onPress={() => handleNotificationClick(notification)}
+                  >
+                    <View style={[
+                      styles.notificationDot,
+                      { backgroundColor: notification.isRead ? colors.neutrals.gray : colors.primary.yellow2 }
+                    ]} />
+                    <View style={styles.notificationContent}>
+                      <Text style={styles.notificationTitle}>{notification.title}</Text>
+                      <Text style={styles.notificationText}>{notification.message}</Text>
+                      <Text style={styles.notificationTime}>
+                        {notification.timestamp ? 
+                          (new Date(notification.timestamp)).toLocaleTimeString() : 
+                          'Now'
+                        }
+                      </Text>
+                    </View>
+                    <Ionicons 
+                      name={getNotificationIcon(notification.type)} 
+                      size={16} 
+                      color={colors.neutrals.gray} 
+                    />
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.emptyNotifications}>
+                  <Ionicons name="notifications-outline" size={48} color={colors.neutrals.gray} />
+                  <Text style={styles.emptyNotificationsText}>No notifications yet</Text>
+                  <Text style={styles.emptyNotificationsSubtext}>
+                    You'll see order updates and messages here
+                  </Text>
+                </View>
+              )}
             </ScrollView>
 
             <TouchableOpacity
@@ -1479,6 +1529,279 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 16,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.gray,
+  },
+  // Notifications Styles
+  notificationsList: {
+    flex: 1,
+    paddingTop: 8,
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.neutrals.lightGray,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  unreadNotification: {
+    backgroundColor: colors.primary.yellow1,
+    borderColor: colors.primary.yellow2,
+    borderWidth: 1,
+  },
+  notificationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 6,
+    marginRight: 12,
+  },
+  notificationContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  notificationTitle: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutrals.dark,
+    marginBottom: 4,
+  },
+  notificationText: {
+    fontSize: 13,
+    color: colors.neutrals.gray,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  notificationTime: {
+    fontSize: 11,
+    color: colors.neutrals.gray,
+    fontFamily: typography.fontFamily.regular,
+  },
+  // Empty notifications state
+  emptyNotifications: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyNotificationsText: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.gray,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyNotificationsSubtext: {
+    fontSize: 14,
+    color: colors.neutrals.gray,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Issues Modal Styles
+  issuesList: {
+    flex: 1,
+    maxHeight: 300,
+  },
+  issueOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutrals.lightGray,
+  },
+  issueText: {
+    fontSize: 16,
+    color: colors.neutrals.dark,
+    fontFamily: typography.fontFamily.regular,
+  },
+  // Delivery Details Modal Styles
+  detailsModalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    maxHeight: '90%',
+  },
+  detailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutrals.lightGray,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  headerInfo: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  detailsTitle: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutrals.dark,
+    marginBottom: 4,
+  },
+  detailsAmount: {
+    fontSize: 18,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.neutrals.dark,
+  },
+  detailsSection: {
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.dark,
+    marginBottom: 12,
+  },
+  customerDetails: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 12,
+    padding: 12,
+  },
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  customerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary.yellow1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  customerText: {
+    flex: 1,
+  },
+  customerDetailName: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.dark,
+    marginBottom: 4,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  phoneNumber: {
+    fontSize: 14,
+    color: colors.neutrals.gray,
+    marginLeft: 6,
+  },
+  addressDetails: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 12,
+    padding: 12,
+  },
+  addressDetailText: {
+    fontSize: 14,
+    color: colors.neutrals.dark,
+    lineHeight: 20,
+    marginLeft: 12,
+    flex: 1,
+  },
+  itemsDetails: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 12,
+    padding: 12,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  itemDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.primary.yellow2,
+    marginRight: 12,
+  },
+  itemText: {
+    fontSize: 14,
+    color: colors.neutrals.dark,
+    flex: 1,
+  },
+  deliveryInfo: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderRadius: 12,
+    padding: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoIcon: {
+    width: 24,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: colors.neutrals.gray,
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.dark,
+  },
+  detailsActions: {
+    marginTop: 16,
+    gap: 12,
+  },
+  detailsActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  mapActionBtn: {
+    backgroundColor: colors.primary.yellow1,
+    borderWidth: 1,
+    borderColor: colors.primary.yellow2,
+  },
+  mapActionText: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.primary.yellow2,
+  },
+  issueBtn: {
+    backgroundColor: colors.neutrals.lightGray,
+    borderWidth: 1,
+    borderColor: colors.neutrals.gray,
+  },
+  issueBtnText: {
+    fontSize: 14,
     fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.gray,
   },
