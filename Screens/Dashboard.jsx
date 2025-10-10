@@ -207,7 +207,8 @@ const Dashboard = ({ navigation }) => {
             }) || ['Items not specified'];
 
             return {
-              id: order._id || order.orderNumber,
+              id: order._id,
+              mongoId: order._id, // Keep the actual MongoDB ID for API calls
               orderNumber: order.orderNumber,
               customerName: customerName,
               customerPhone: customerPhone,
@@ -448,7 +449,8 @@ const Dashboard = ({ navigation }) => {
             }) || ['Items not specified'];
 
             return {
-              id: order._id || order.orderNumber,
+              id: order._id,
+              mongoId: order._id, // Keep the actual MongoDB ID for API calls
               orderNumber: order.orderNumber,
               customerName: customerName,
               customerPhone: customerPhone,
@@ -516,18 +518,26 @@ const Dashboard = ({ navigation }) => {
 
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
+      console.log(`📋 Updating order status - OrderID: ${orderId}, New Status: ${newStatus}`);
+      
+      // Find the delivery to get the MongoDB ID
+      const delivery = deliveries.find(d => d.id === orderId);
+      const mongoId = delivery?.mongoId || delivery?._id || orderId;
+      
+      console.log(`📋 Using MongoDB ID: ${mongoId} for order: ${orderId}`);
+      
       let response;
       
       // Call appropriate API method based on status
       switch (newStatus) {
         case 'picked_up':
-          response = await dashboardAPI.markPickedUp(orderId);
+          response = await dashboardAPI.markPickedUp(mongoId);
           break;
         case 'delivered':
-          response = await dashboardAPI.markDelivered(orderId);
+          response = await dashboardAPI.markDelivered(mongoId);
           break;
         default:
-          response = await dashboardAPI.updateDeliveryStatus(orderId, newStatus);
+          response = await dashboardAPI.updateDeliveryStatus(mongoId, newStatus);
       }
 
       if (response.success) {
@@ -559,6 +569,7 @@ const Dashboard = ({ navigation }) => {
           }));
         }
       } else {
+        console.error(`❌ API Error: ${response.error}`);
         Alert.alert('Error', response.error || 'Failed to update order status');
       }
     } catch (error) {
@@ -822,9 +833,7 @@ const Dashboard = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
-      
+    <View style={styles.container}>      
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -849,7 +858,7 @@ const Dashboard = ({ navigation }) => {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.mapButton}
-            onPress={() => navigation.navigate('Maps', { deliveries })}
+            onPress={() => navigation.navigate('Maps', { deliveries: filteredDeliveries })}
           >
             <Ionicons name="map-outline" size={24} color={colors.neutrals.dark} />
           </TouchableOpacity>
@@ -1009,11 +1018,8 @@ const Dashboard = ({ navigation }) => {
               showsVerticalScrollIndicator={true}
             >
               {(() => {
-                console.log('📢 Rendering notifications modal, list length:', notificationsList.length);
-                console.log('📢 Notifications list:', notificationsList);
                 return notificationsList.length > 0 ? (
                   notificationsList.map((notification, index) => {
-                    console.log('📢 Rendering notification:', notification);
                     return (
                       <TouchableOpacity 
                         key={notification.id || index} 
@@ -1294,6 +1300,8 @@ const Dashboard = ({ navigation }) => {
                       onPress={() => {
                         setShowDeliveryDetails(false);
                         navigation.navigate('Maps', { 
+                          deliveries: filteredDeliveries,
+                          delivery: selectedDelivery,
                           destination: selectedDelivery.coordinates,
                           address: selectedDelivery.address 
                         });

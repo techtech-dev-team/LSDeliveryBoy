@@ -41,7 +41,7 @@ const Maps = ({ navigation, route }) => {
     });
   };
 
-  const getDirections = (address) => {
+  const getDirections = (address, locationType = 'destination') => {
     const query = encodeURIComponent(address);
     const url = `https://www.google.com/maps/dir/?api=1&destination=${query}&travelmode=driving`;
     
@@ -49,7 +49,57 @@ const Maps = ({ navigation, route }) => {
       if (supported) {
         Linking.openURL(url);
       } else {
-        Alert.alert('Error', 'Unable to open directions');
+        Alert.alert('Error', `Unable to open directions to ${locationType}`);
+      }
+    });
+  };
+
+  const getPickupDirections = (pickupAddress) => {
+    if (!pickupAddress) {
+      Alert.alert('No Pickup Address', 'Pickup address not available');
+      return;
+    }
+    const query = encodeURIComponent(pickupAddress);
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${query}&travelmode=driving`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open directions to pickup location');
+      }
+    });
+  };
+
+  const getFullRoute = (pickupAddress, deliveryAddress) => {
+    if (!pickupAddress || !deliveryAddress) {
+      Alert.alert('Missing Addresses', 'Both pickup and delivery addresses are required');
+      return;
+    }
+
+    const origin = encodeURIComponent(pickupAddress);
+    const destination = encodeURIComponent(deliveryAddress);
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open full route directions');
+      }
+    });
+  };
+
+  const getCurrentLocationRoute = (destinationAddress) => {
+    // This will use the user's current location as the starting point
+    const query = encodeURIComponent(destinationAddress);
+    const url = `https://www.google.com/maps/dir/Current+Location/${query}?travelmode=driving`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open route from current location');
       }
     });
   };
@@ -121,6 +171,33 @@ const Maps = ({ navigation, route }) => {
         { 
           text: 'Route All', 
           onPress: () => getMultiStopDirections(addresses)
+        }
+      ]
+    );
+  };
+
+    const getOptimizedPickupRoute = () => {
+    // Get deliveries that need pickup (assigned status)
+    const pickupDeliveries = deliveries.filter(d => 
+      d.status === 'assigned' && d.pickupAddress
+    );
+
+    if (pickupDeliveries.length === 0) {
+      Alert.alert('No Pickups Needed', 'All orders are already picked up or out for delivery');
+      return;
+    }
+
+    // Create route through all pickup locations
+    const pickupAddresses = pickupDeliveries.map(d => d.pickupAddress);
+    
+    Alert.alert(
+      'Pickup Route',
+      `Create route for ${pickupAddresses.length} pickup locations?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Route Pickups', 
+          onPress: () => getMultiStopDirections(pickupAddresses)
         }
       ]
     );
@@ -228,8 +305,24 @@ const Maps = ({ navigation, route }) => {
 
       <Text style={styles.customerName}>{item.customerName}</Text>
       
-      <View style={styles.addressSection}>
-        <Ionicons name="location-outline" size={16} color={colors.neutrals.gray} />
+      {/* Pickup Location */}
+      {item.vendorName && item.pickupAddress && (
+        <View style={styles.locationSection}>
+          <View style={styles.locationHeader}>
+            <Ionicons name="storefront" size={16} color={colors.primary.yellow2} />
+            <Text style={styles.locationLabel}>Pickup from:</Text>
+          </View>
+          <Text style={styles.vendorName}>{item.vendorName}</Text>
+          <Text style={styles.pickupAddress} numberOfLines={2}>{item.pickupAddress}</Text>
+        </View>
+      )}
+      
+      {/* Delivery Address */}
+      <View style={styles.locationSection}>
+        <View style={styles.locationHeader}>
+          <Ionicons name="location" size={16} color={colors.neutrals.gray} />
+          <Text style={styles.locationLabel}>Deliver to:</Text>
+        </View>
         <Text style={styles.address} numberOfLines={2}>{item.address}</Text>
       </View>
 
@@ -246,21 +339,36 @@ const Maps = ({ navigation, route }) => {
       </View>
 
       <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.mapButton}
-          onPress={() => openGoogleMaps(item.address, item.customerName)}
-        >
-          <Ionicons name="map-outline" size={16} color={colors.primary.yellow2} />
-          <Text style={styles.mapButtonText}>View</Text>
-        </TouchableOpacity>
+        {/* Pickup Navigation */}
+        {item.pickupAddress && (
+          <TouchableOpacity 
+            style={styles.pickupButton}
+            onPress={() => getPickupDirections(item.pickupAddress)}
+          >
+            <Ionicons name="storefront-outline" size={16} color={colors.primary.yellow2} />
+            <Text style={styles.pickupButtonText}>To Store</Text>
+          </TouchableOpacity>
+        )}
         
+        {/* Delivery Navigation */}
         <TouchableOpacity 
           style={styles.directionsButton}
-          onPress={() => getDirections(item.address)}
+          onPress={() => getDirections(item.address, 'delivery')}
         >
           <Ionicons name="navigate" size={16} color="white" />
-          <Text style={styles.directionsButtonText}>Directions</Text>
+          <Text style={styles.directionsButtonText}>To Customer</Text>
         </TouchableOpacity>
+
+        {/* Full Route */}
+        {item.pickupAddress && (
+          <TouchableOpacity 
+            style={styles.routeButton}
+            onPress={() => getFullRoute(item.pickupAddress, item.address)}
+          >
+            <Ionicons name="git-network-outline" size={16} color="white" />
+            <Text style={styles.routeButtonText}>Full Route</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -326,24 +434,6 @@ const Maps = ({ navigation, route }) => {
         </View>
       </View>
 
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity 
-          style={styles.quickActionButton}
-          onPress={routeAllDeliveries}
-        >
-          <Ionicons name="map" size={20} color={colors.primary.yellow2} />
-          <Text style={styles.quickActionText}>Route All</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.quickActionButton}
-          onPress={getNextDeliveryRoute}
-        >
-          <Ionicons name="navigate-circle" size={20} color={colors.primary.yellow2} />
-          <Text style={styles.quickActionText}>Next Delivery</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Delivery List */}
       <View style={styles.deliveriesSection}>
@@ -395,6 +485,44 @@ const Maps = ({ navigation, route }) => {
                     <Text style={styles.customerPhone}>{selectedDelivery.customerPhone}</Text>
                   </View>
 
+                  {/* Pickup Location Section */}
+                  {selectedDelivery.vendorName && selectedDelivery.pickupAddress && (
+                    <View style={styles.pickupDetailSection}>
+                      <Text style={styles.sectionLabel}>Pickup Location</Text>
+                      <View style={styles.locationCard}>
+                        <Ionicons name="storefront" size={20} color={colors.primary.yellow2} />
+                        <View style={styles.locationDetails}>
+                          <Text style={styles.vendorDetailName}>{selectedDelivery.vendorName}</Text>
+                          <Text style={styles.pickupDetailAddress}>{selectedDelivery.pickupAddress}</Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.locationActions}>
+                        <TouchableOpacity 
+                          style={styles.pickupNavButton}
+                          onPress={() => {
+                            setShowDeliveryDetails(false);
+                            openGoogleMaps(selectedDelivery.pickupAddress, selectedDelivery.vendorName);
+                          }}
+                        >
+                          <Ionicons name="map" size={16} color={colors.primary.yellow2} />
+                          <Text style={styles.pickupNavText}>View Store</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                          style={styles.pickupDirectionsButton}
+                          onPress={() => {
+                            setShowDeliveryDetails(false);
+                            getPickupDirections(selectedDelivery.pickupAddress);
+                          }}
+                        >
+                          <Ionicons name="navigate" size={16} color="white" />
+                          <Text style={styles.pickupDirectionsText}>To Store</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
                   <View style={styles.addressDetailSection}>
                     <Text style={styles.sectionLabel}>Delivery Address</Text>
                     <View style={styles.addressCard}>
@@ -421,6 +549,20 @@ const Maps = ({ navigation, route }) => {
                 </ScrollView>
 
                 <View style={styles.modalActions}>
+                  {/* Full Route Navigation */}
+                  {selectedDelivery.pickupAddress && (
+                    <TouchableOpacity 
+                      style={styles.fullRouteButton}
+                      onPress={() => {
+                        setShowDeliveryDetails(false);
+                        getFullRoute(selectedDelivery.pickupAddress, selectedDelivery.address);
+                      }}
+                    >
+                      <Ionicons name="git-network-outline" size={18} color="white" />
+                      <Text style={styles.fullRouteText}>Full Route</Text>
+                    </TouchableOpacity>
+                  )}
+
                   <TouchableOpacity 
                     style={styles.modalMapButton}
                     onPress={() => {
@@ -429,18 +571,18 @@ const Maps = ({ navigation, route }) => {
                     }}
                   >
                     <Ionicons name="map" size={18} color={colors.primary.yellow2} />
-                    <Text style={styles.modalMapText}>View on Map</Text>
+                    <Text style={styles.modalMapText}>View Customer</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
                     style={styles.modalDirectionsButton}
                     onPress={() => {
                       setShowDeliveryDetails(false);
-                      getDirections(selectedDelivery.address);
+                      getDirections(selectedDelivery.address, 'customer');
                     }}
                   >
                     <Ionicons name="navigate" size={18} color="white" />
-                    <Text style={styles.modalDirectionsText}>Get Directions</Text>
+                    <Text style={styles.modalDirectionsText}>To Customer</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -519,7 +661,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    gap: 12,
+    gap: 8,
     backgroundColor: 'white',
     marginHorizontal: 16,
     marginTop: 8,
@@ -539,17 +681,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary.yellow1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.primary.yellow2,
-    gap: 8,
+    gap: 4,
   },
   quickActionText: {
-    fontSize: 13,
+    fontSize: 11,
     color: colors.neutrals.dark,
     fontFamily: typography.fontFamily.medium,
+    textAlign: 'center',
   },
   deliveriesSection: {
     flex: 1,
@@ -618,6 +761,36 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.medium,
     marginBottom: 8,
   },
+  locationSection: {
+    marginBottom: 12,
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  locationLabel: {
+    fontSize: 12,
+    color: colors.neutrals.gray,
+    fontFamily: typography.fontFamily.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  vendorName: {
+    fontSize: 14,
+    color: colors.neutrals.dark,
+    fontFamily: typography.fontFamily.medium,
+    marginBottom: 2,
+    marginLeft: 22,
+  },
+  pickupAddress: {
+    fontSize: 13,
+    color: colors.neutrals.gray,
+    marginLeft: 22,
+    lineHeight: 18,
+    fontFamily: typography.fontFamily.regular,
+  },
   addressSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -630,6 +803,7 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
     fontFamily: typography.fontFamily.regular,
+    marginLeft: 22,
   },
   deliveryMeta: {
     flexDirection: 'row',
@@ -657,7 +831,27 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  pickupButton: {
+    flex: 1,
+    minWidth: 80,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.primary.yellow2,
+    backgroundColor: colors.primary.yellow1,
+    gap: 4,
+  },
+  pickupButtonText: {
+    color: colors.primary.yellow2,
+    fontSize: 11,
+    fontFamily: typography.fontFamily.medium,
   },
   mapButton: {
     flex: 1,
@@ -678,17 +872,36 @@ const styles = StyleSheet.create({
   },
   directionsButton: {
     flex: 1,
+    minWidth: 90,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
     backgroundColor: colors.primary.yellow2,
-    gap: 6,
+    gap: 4,
   },
   directionsButtonText: {
     color: 'white',
-    fontSize: 13,
+    fontSize: 11,
+    fontFamily: typography.fontFamily.medium,
+  },
+  routeButton: {
+    flex: 1,
+    minWidth: 85,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: colors.neutrals.dark,
+    gap: 4,
+  },
+  routeButtonText: {
+    color: 'white',
+    fontSize: 11,
     fontFamily: typography.fontFamily.medium,
   },
   emptyState: {
@@ -773,6 +986,71 @@ const styles = StyleSheet.create({
     color: colors.neutrals.gray,
     fontFamily: typography.fontFamily.regular,
   },
+  pickupDetailSection: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutrals.lightGray,
+  },
+  locationCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.neutrals.lightGray,
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+    marginBottom: 12,
+  },
+  locationDetails: {
+    flex: 1,
+  },
+  vendorDetailName: {
+    fontSize: 15,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.dark,
+    marginBottom: 4,
+  },
+  pickupDetailAddress: {
+    fontSize: 13,
+    color: colors.neutrals.gray,
+    lineHeight: 18,
+    fontFamily: typography.fontFamily.regular,
+  },
+  locationActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pickupNavButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary.yellow2,
+    backgroundColor: colors.primary.yellow1,
+    gap: 6,
+  },
+  pickupNavText: {
+    color: colors.primary.yellow2,
+    fontSize: 12,
+    fontFamily: typography.fontFamily.medium,
+  },
+  pickupDirectionsButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: colors.primary.yellow2,
+    gap: 6,
+  },
+  pickupDirectionsText: {
+    color: 'white',
+    fontSize: 12,
+    fontFamily: typography.fontFamily.medium,
+  },
   addressDetailSection: {
     padding: 20,
     borderBottomWidth: 1,
@@ -822,10 +1100,29 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     padding: 20,
-    gap: 12,
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  fullRouteButton: {
+    flex: 1,
+    minWidth: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: colors.neutrals.dark,
+    gap: 6,
+    marginBottom: 8,
+  },
+  fullRouteText: {
+    color: 'white',
+    fontSize: 13,
+    fontFamily: typography.fontFamily.medium,
   },
   modalMapButton: {
     flex: 1,
+    minWidth: 110,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -843,6 +1140,7 @@ const styles = StyleSheet.create({
   },
   modalDirectionsButton: {
     flex: 1,
+    minWidth: 110,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
