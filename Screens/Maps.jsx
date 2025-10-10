@@ -54,6 +54,118 @@ const Maps = ({ navigation, route }) => {
     });
   };
 
+  const getMultiStopDirections = (addresses) => {
+    if (addresses.length === 0) {
+      Alert.alert('No Addresses', 'No delivery addresses found');
+      return;
+    }
+
+    if (addresses.length === 1) {
+      // Single destination
+      getDirections(addresses[0]);
+      return;
+    }
+
+    // For multiple stops, we'll create a route with waypoints
+    const destination = encodeURIComponent(addresses[addresses.length - 1]); // Last delivery
+    const waypoints = addresses.slice(0, -1).map(addr => encodeURIComponent(addr)).join('|');
+    
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open multi-stop directions');
+      }
+    });
+  };
+
+  const routeAllDeliveries = () => {
+    if (deliveries.length === 0) {
+      Alert.alert('No Deliveries', 'No deliveries available to route');
+      return;
+    }
+
+    // Sort deliveries by priority and status for optimal routing
+    const sortedDeliveries = [...deliveries].sort((a, b) => {
+      // Priority order: assigned > picked_up > out_for_delivery > delivered
+      const statusPriority = {
+        'assigned': 1,
+        'picked_up': 2,
+        'out_for_delivery': 3,
+        'delivered': 4
+      };
+      
+      const priorityOrder = {
+        'urgent': 1,
+        'high': 2,
+        'normal': 3
+      };
+
+      // First sort by status priority
+      const statusDiff = (statusPriority[a.status] || 5) - (statusPriority[b.status] || 5);
+      if (statusDiff !== 0) return statusDiff;
+
+      // Then by delivery priority
+      return (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3);
+    });
+
+    const addresses = sortedDeliveries.map(delivery => delivery.address);
+    
+    Alert.alert(
+      'Route All Deliveries',
+      `Create optimized route for ${addresses.length} deliveries?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Route All', 
+          onPress: () => getMultiStopDirections(addresses)
+        }
+      ]
+    );
+  };
+
+  const getNextDeliveryRoute = () => {
+    // Get pending deliveries (assigned or picked_up)
+    const pendingDeliveries = deliveries.filter(d => 
+      d.status === 'assigned' || d.status === 'picked_up'
+    );
+
+    if (pendingDeliveries.length === 0) {
+      Alert.alert('No Active Deliveries', 'All deliveries are completed or out for delivery');
+      return;
+    }
+
+    // Sort by priority
+    const sortedPending = pendingDeliveries.sort((a, b) => {
+      const priorityOrder = { 'urgent': 1, 'high': 2, 'normal': 3 };
+      const statusOrder = { 'assigned': 1, 'picked_up': 2 };
+      
+      // First by status (assigned first)
+      const statusDiff = (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
+      if (statusDiff !== 0) return statusDiff;
+      
+      // Then by priority
+      return (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3);
+    });
+
+    if (sortedPending.length === 1) {
+      getDirections(sortedPending[0].address);
+    } else {
+      const addresses = sortedPending.map(d => d.address);
+      Alert.alert(
+        'Next Deliveries',
+        `Route to ${sortedPending.length} pending deliveries?`,
+        [
+          { text: 'Just Next', onPress: () => getDirections(sortedPending[0].address) },
+          { text: 'Route All Pending', onPress: () => getMultiStopDirections(addresses) },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    }
+  };
+
   const getStatusColor = (status) => {
     const statusColors = {
       assigned: colors.primary.yellow2,
@@ -154,9 +266,7 @@ const Maps = ({ navigation, route }) => {
   );
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
-      
+    <View style={styles.container}>      
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -173,25 +283,54 @@ const Maps = ({ navigation, route }) => {
           </Text>
         </View>
 
-        <TouchableOpacity 
-          style={styles.refreshButton}
-          onPress={() => {
-            // Refresh delivery locations
-            Alert.alert('Refreshed', 'Delivery locations updated');
-          }}
-        >
-          <Ionicons name="refresh-outline" size={24} color={colors.neutrals.dark} />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.routeAllButton}
+            onPress={() => {
+              if (deliveries.length > 1) {
+                Alert.alert(
+                  'Create Route',
+                  'Choose routing option:',
+                  [
+                    { 
+                      text: 'Optimized Route', 
+                      onPress: routeAllDeliveries
+                    },
+                    { 
+                      text: 'All Locations', 
+                      onPress: () => {
+                        const addresses = deliveries.map(d => d.address);
+                        getMultiStopDirections(addresses);
+                      }
+                    },
+                    { text: 'Cancel', style: 'cancel' }
+                  ]
+                );
+              } else {
+                routeAllDeliveries();
+              }
+            }}
+          >
+            <Ionicons name="git-network-outline" size={20} color={colors.primary.yellow2} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.refreshButton}
+            onPress={() => {
+              // Refresh delivery locations
+              Alert.alert('Refreshed', 'Delivery locations updated');
+            }}
+          >
+            <Ionicons name="refresh-outline" size={24} color={colors.neutrals.dark} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Quick Actions */}
       <View style={styles.quickActions}>
         <TouchableOpacity 
           style={styles.quickActionButton}
-          onPress={() => {
-            const allAddresses = deliveries.map(d => d.address).join(' | ');
-            getDirections(allAddresses);
-          }}
+          onPress={routeAllDeliveries}
         >
           <Ionicons name="map" size={20} color={colors.primary.yellow2} />
           <Text style={styles.quickActionText}>Route All</Text>
@@ -199,14 +338,7 @@ const Maps = ({ navigation, route }) => {
 
         <TouchableOpacity 
           style={styles.quickActionButton}
-          onPress={() => {
-            const nextDelivery = deliveries.find(d => d.status === 'assigned' || d.status === 'picked_up');
-            if (nextDelivery) {
-              getDirections(nextDelivery.address);
-            } else {
-              Alert.alert('No Active Deliveries', 'All deliveries are completed or out for delivery');
-            }
-          }}
+          onPress={getNextDeliveryRoute}
         >
           <Ionicons name="navigate-circle" size={20} color={colors.primary.yellow2} />
           <Text style={styles.quickActionText}>Next Delivery</Text>
@@ -323,75 +455,126 @@ const Maps = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop:Platform.OS === 'android' ? StatusBar.currentHeight : 45,
-    backgroundColor: 'white',
+    backgroundColor: colors.neutrals.lightGray,
   },
   header: {
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 65,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   backButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.neutrals.lightGray,
   },
   headerCenter: {
     flex: 1,
     alignItems: 'center',
+    marginHorizontal: 16,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '400',
+    fontSize: 18,
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutrals.dark,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
     fontSize: 12,
     color: colors.neutrals.gray,
     marginTop: 2,
+    fontFamily: typography.fontFamily.regular,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  routeAllButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.primary.yellow1,
+    borderWidth: 1,
+    borderColor: colors.primary.yellow2,
   },
   refreshButton: {
     padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.neutrals.lightGray,
   },
   quickActions: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 12,
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   quickActionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.neutrals.lightGray,
+    backgroundColor: colors.primary.yellow1,
     paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.primary.yellow2,
     gap: 8,
   },
   quickActionText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.neutrals.dark,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
   },
   deliveriesSection: {
     flex: 1,
+    marginTop: 8,
   },
   deliveriesList: {
     paddingBottom: 24,
+    paddingTop: 8,
   },
   deliveryItem: {
     backgroundColor: 'white',
-    marginHorizontal: 24,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: colors.neutrals.lightGray,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   deliveryHeader: {
     flexDirection: 'row',
@@ -403,34 +586,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   orderId: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutrals.dark,
+    letterSpacing: -0.2,
   },
   priorityBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statusBadge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     color: 'white',
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
   },
   customerName: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.neutrals.dark,
-    fontWeight: '400',
+    fontFamily: typography.fontFamily.medium,
     marginBottom: 8,
   },
   addressSection: {
@@ -440,16 +625,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   address: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.neutrals.gray,
     flex: 1,
-    lineHeight: 20,
+    lineHeight: 18,
+    fontFamily: typography.fontFamily.regular,
   },
   deliveryMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutrals.lightGray,
   },
   metaItem: {
     flexDirection: 'row',
@@ -459,94 +648,100 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     color: colors.neutrals.gray,
+    fontFamily: typography.fontFamily.regular,
   },
   amount: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutrals.dark,
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   mapButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.primary.yellow2,
-    backgroundColor: 'white',
+    backgroundColor: colors.primary.yellow1,
     gap: 6,
   },
   mapButtonText: {
     color: colors.primary.yellow2,
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontFamily: typography.fontFamily.medium,
   },
   directionsButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
     backgroundColor: colors.primary.yellow2,
     gap: 6,
   },
   directionsButtonText: {
     color: 'white',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontFamily: typography.fontFamily.medium,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 80,
+    paddingVertical: 60,
+    paddingHorizontal: 20,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 16,
     color: colors.neutrals.gray,
-    fontWeight: '300',
-    marginTop: 20,
+    fontFamily: typography.fontFamily.medium,
+    marginTop: 16,
+    textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
     color: colors.neutrals.gray,
     marginTop: 8,
     textAlign: 'center',
+    fontFamily: typography.fontFamily.regular,
   },
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 24,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
   },
   closeButton: {
     padding: 4,
+    borderRadius: 16,
+    backgroundColor: colors.neutrals.lightGray,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '400',
+    fontSize: 18,
+    fontFamily: typography.fontFamily.bold,
     color: colors.neutrals.dark,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   headerSpacer: {
     width: 32,
@@ -555,30 +750,31 @@ const styles = StyleSheet.create({
     maxHeight: 400,
   },
   customerSection: {
-    padding: 24,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
   },
   sectionLabel: {
     fontSize: 12,
     color: colors.neutrals.gray,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     marginBottom: 12,
   },
   customerDetailName: {
-    fontSize: 18,
-    fontWeight: '400',
+    fontSize: 16,
+    fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
     marginBottom: 4,
   },
   customerPhone: {
     fontSize: 14,
     color: colors.neutrals.gray,
+    fontFamily: typography.fontFamily.regular,
   },
   addressDetailSection: {
-    padding: 24,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
   },
@@ -591,17 +787,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   fullAddress: {
-    fontSize: 15,
+    fontSize: 14,
     color: colors.neutrals.dark,
-    lineHeight: 22,
+    lineHeight: 20,
     flex: 1,
+    fontFamily: typography.fontFamily.regular,
   },
   deliveryInfoSection: {
-    padding: 24,
+    padding: 20,
   },
   infoGrid: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   infoItem: {
     flex: 1,
@@ -611,19 +808,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.neutrals.gray,
     marginTop: 8,
     marginBottom: 4,
+    fontFamily: typography.fontFamily.regular,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.neutrals.dark,
-    fontWeight: '500',
+    fontFamily: typography.fontFamily.medium,
   },
   modalActions: {
     flexDirection: 'row',
-    padding: 24,
+    padding: 20,
     gap: 12,
   },
   modalMapButton: {
@@ -631,32 +829,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.primary.yellow2,
-    backgroundColor: 'white',
+    backgroundColor: colors.primary.yellow1,
     gap: 8,
   },
   modalMapText: {
     color: colors.primary.yellow2,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
   },
   modalDirectionsButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
     backgroundColor: colors.primary.yellow2,
     gap: 8,
   },
   modalDirectionsText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
   },
 });
 
