@@ -1,68 +1,44 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { colors } from '../components/colors';
+import { earningsAPI } from '../utils/earnings';
 
 const Earnings = ({ navigation }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('today'); // today, week, month
+  const [earnings, setEarnings] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Sample earnings data
-  const earningsData = {
-    today: {
-      total: '₹450',
-      deliveries: 8,
-      hours: '6.5 hrs',
-      avgPerOrder: '₹56.25'
-    },
-    week: {
-      total: '₹2,340',
-      deliveries: 42,
-      hours: '35 hrs',
-      avgPerOrder: '₹55.71'
-    },
-    month: {
-      total: '₹9,850',
-      deliveries: 178,
-      hours: '145 hrs',
-      avgPerOrder: '₹55.34'
-    }
-  };
+  React.useEffect(() => {
+    const getEarnings = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await earningsAPI.getEarnings(selectedPeriod);
+        if (result.success) {
+          setEarnings(result.data);
+        } else {
+          setError(result.error || 'Failed to fetch earnings');
+        }
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getEarnings();
+  }, [selectedPeriod]);
 
-  const currentData = earningsData[selectedPeriod];
-
-  const recentEarnings = [
-    {
-      id: 'ORD001',
-      amount: '₹85',
-      time: '2:30 PM',
-      type: 'delivery'
-    },
-    {
-      id: 'ORD002', 
-      amount: '₹45',
-      time: '1:15 PM',
-      type: 'delivery'
-    },
-    {
-      id: 'BONUS001',
-      amount: '₹50',
-      time: '12:00 PM',
-      type: 'bonus'
-    },
-    {
-      id: 'ORD003',
-      amount: '₹120',
-      time: '11:30 AM',
-      type: 'delivery'
-    },
-  ];
+  // You can fetch recent earnings from backend if available, else keep as empty array
+  const recentEarnings = [];
 
   const StatCard = ({ title, value, icon }) => (
     <View style={styles.statCard}>
@@ -98,7 +74,6 @@ const Earnings = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-      
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
@@ -136,38 +111,53 @@ const Earnings = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Total Earnings Card */}
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Total Earnings</Text>
-          <Text style={styles.totalAmount}>{currentData.total}</Text>
-        </View>
-
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <StatCard 
-            title="Deliveries" 
-            value={currentData.deliveries} 
-            icon="bicycle-outline"
-          />
-          <StatCard 
-            title="Hours Worked" 
-            value={currentData.hours} 
-            icon="time-outline"
-          />
-          <StatCard 
-            title="Avg per Order" 
-            value={currentData.avgPerOrder} 
-            icon="trending-up-outline"
-          />
-        </View>
-
-        {/* Recent Earnings */}
-        <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>Recent Earnings</Text>
-          {recentEarnings.map((item, index) => (
-            <EarningItem key={index} item={item} />
-          ))}
-        </View>
+        {/* Earnings Data */}
+        {loading ? (
+          <View style={styles.totalCard}>
+            <Text style={styles.totalLabel}>Loading earnings...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.totalCard}>
+            <Text style={[styles.totalLabel, { color: 'red' }]}>Error: {error}</Text>
+          </View>
+        ) : earnings ? (
+          <>
+            <View style={styles.totalCard}>
+              <Text style={styles.totalLabel}>Total Earnings</Text>
+              <Text style={styles.totalAmount}>₹{earnings.totalEarnings}</Text>
+            </View>
+            <View style={styles.statsGrid}>
+              <StatCard 
+                title="Deliveries" 
+                value={earnings.totalOrders} 
+                icon="bicycle-outline"
+              />
+              {/* If you have hours worked, add here. Otherwise, skip. */}
+              <StatCard 
+                title="Avg per Order" 
+                value={`₹${earnings.avgEarningsPerOrder.toFixed(2)}`} 
+                icon="trending-up-outline"
+              />
+            </View>
+            {/* Recent Earnings: If you want to show earningsByDate, you can map here */}
+            <View style={styles.recentSection}>
+              <Text style={styles.sectionTitle}>Earnings by Date</Text>
+              {earnings.earningsByDate && Object.entries(earnings.earningsByDate).map(([date, amount], idx) => (
+                <View key={idx} style={styles.earningItem}>
+                  <View style={styles.earningLeft}>
+                    <View style={[styles.earningIcon, { backgroundColor: colors.neutrals.lightGray }]}> 
+                      <Ionicons name="bicycle-outline" size={16} color={colors.neutrals.gray} />
+                    </View>
+                    <View style={styles.earningInfo}>
+                      <Text style={styles.earningId}>{date}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.earningAmount}>₹{amount}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : null}
       </ScrollView>
     </View>
   );

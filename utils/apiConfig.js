@@ -1,7 +1,7 @@
 // API Configuration
 export const API_CONFIG = {
   // Development/Local API URL
-  LOCAL_API_URL: 'http://localhost:5001/api',
+  LOCAL_API_URL: 'http://15.207.111.106/api',
   
   // Production API URL (update this with your actual production URL)
   PRODUCTION_API_URL: 'https://your-production-api.com/api',

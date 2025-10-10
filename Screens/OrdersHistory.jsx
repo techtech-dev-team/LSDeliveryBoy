@@ -1,17 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    FlatList,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  FlatList,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { colors } from '../components/colors';
 
 const OrdersHistory = ({ navigation }) => {
-  const [selectedTab, setSelectedTab] = useState('all'); // all, completed, cancelled
+  const [selectedTab, setSelectedTab] = useState('all'); // all, completed, cancelled, recent
 
   // Sample orders history data
   const ordersData = [
@@ -52,6 +52,18 @@ const OrdersHistory = ({ navigation }) => {
       return orders.filter(order => order.status === 'delivered');
     } else if (selectedTab === 'cancelled') {
       return orders.filter(order => order.status === 'cancelled');
+    } else if (selectedTab === 'recent') {
+      // Sort by date descending and pick top 2 as recent (customize as needed)
+      return [...orders]
+        .sort((a, b) => {
+          // Compare date strings (YYYY-MM-DD)
+          if (a.date === b.date) {
+            // Compare time if dates are equal
+            return b.time.localeCompare(a.time);
+          }
+          return b.date.localeCompare(a.date);
+        })
+        .slice(0, 2);
     }
     return orders;
   };
@@ -108,6 +120,14 @@ const OrdersHistory = ({ navigation }) => {
         >
           <Text style={[styles.tabText, selectedTab === 'all' && styles.activeTabText]}>
             All
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, selectedTab === 'recent' && styles.activeTab]}
+          onPress={() => setSelectedTab('recent')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'recent' && styles.activeTabText]}>
+            Recent
           </Text>
         </TouchableOpacity>
         <TouchableOpacity 
