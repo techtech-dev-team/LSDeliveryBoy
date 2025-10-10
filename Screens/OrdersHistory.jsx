@@ -1,52 +1,51 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
 import {
   FlatList,
+  Platform,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Platform
+  View
 } from 'react-native';
 import { colors } from '../components/colors';
+import { fetchAllOrders } from '../utils/ordershistory';
 
 const OrdersHistory = ({ navigation }) => {
   const [selectedTab, setSelectedTab] = useState('all'); // all, completed, cancelled, recent
 
   // Sample orders history data
-  const ordersData = [
-    {
-      id: 'ORD001',
-      customerName: 'Rahul Sharma',
-      address: 'Shop No. 15, MG Road, Sector 14',
-      amount: '₹85',
-      status: 'delivered',
-      date: '2025-10-06',
-      time: '2:30 PM',
-      items: 3
-    },
-    {
-      id: 'ORD002',
-      customerName: 'Priya Singh',
-      address: 'A-201, Green Valley Apartments',
-      amount: '₹45',
-      status: 'delivered',
-      date: '2025-10-06',
-      time: '1:15 PM',
-      items: 2
-    },
-    {
-      id: 'ORD003',
-      customerName: 'Amit Kumar',
-      address: 'Office Complex, Block B',
-      amount: '₹120',
-      status: 'cancelled',
-      date: '2025-10-05',
-      time: '4:45 PM',
-      items: 5
-    },
-  ];
+    const [ordersData, setOrdersData] = useState([]);
+    const [loadingOrders, setLoadingOrders] = useState(false);
+    const [ordersError, setOrdersError] = useState(null);
+
+    // Fetch orders from backend for 'all' tab
+    React.useEffect(() => {
+      if (selectedTab === 'all') {
+        setLoadingOrders(true);
+        setOrdersError(null);
+        (async () => {
+          try {
+            const token = await AsyncStorage.getItem('delivery_boy_token');
+            const res = await fetchAllOrders({ page: 1, limit: 20, token });
+            if (res.success) {
+              setOrdersData(res.orders);
+            } else {
+              setOrdersError(res.message);
+              setOrdersData([]);
+            }
+          } catch (err) {
+            setOrdersError(err.message);
+            setOrdersData([]);
+          } finally {
+            setLoadingOrders(false);
+          }
+        })();
+      }
+    }, [selectedTab]);
 
   const filterOrders = (orders) => {
     if (selectedTab === 'completed') {
@@ -95,7 +94,17 @@ const OrdersHistory = ({ navigation }) => {
 
       <View style={styles.addressSection}>
         <Ionicons name="location-outline" size={16} color={colors.neutrals.gray} />
-        <Text style={styles.address}>{item.address}</Text>
+        <Text style={styles.address}>
+          {typeof item.address === 'object' && item.address !== null
+            ? [
+                item.address.landmark,
+                item.address.address,
+                item.address.city,
+                item.address.state,
+                item.address.pincode
+              ].filter(Boolean).join(', ')
+            : item.address}
+        </Text>
       </View>
 
       <View style={styles.timeSection}>
@@ -113,65 +122,55 @@ const OrdersHistory = ({ navigation }) => {
         <Text style={styles.title}>Order History</Text>
       </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterTabs}>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'all' && styles.activeTab]}
-          onPress={() => setSelectedTab('all')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'all' && styles.activeTabText]}>
-            All
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'recent' && styles.activeTab]}
-          onPress={() => setSelectedTab('recent')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'recent' && styles.activeTabText]}>
-            Recent
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'completed' && styles.activeTab]}
-          onPress={() => setSelectedTab('completed')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'completed' && styles.activeTabText]}>
-            Completed
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'failed' && styles.activeTab]}
-          onPress={() => setSelectedTab('failed')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'failed' && styles.activeTabText]}>
-            Failed
-          </Text>
-        </TouchableOpacity>
-
-
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'cancelled' && styles.activeTab]}
-          onPress={() => setSelectedTab('cancelled')}
-        >
-          <Text style={[styles.tabText, selectedTab === 'cancelled' && styles.activeTabText]}>
-            Cancelled
-          </Text>
-        </TouchableOpacity>
+      {/* Filter Tabs - horizontal scroll */}
+      <View style={styles.filterTabsWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterTabs}>
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'recent', label: 'Recent' },
+            { key: 'completed', label: 'Completed' },
+            { key: 'failed', label: 'Failed' },
+            { key: 'cancelled', label: 'Cancelled' },
+          ].map(item => (
+            <TouchableOpacity
+              key={item.key}
+              style={[styles.tab, selectedTab === item.key && styles.activeTab]}
+              onPress={() => setSelectedTab(item.key)}
+            >
+              <Text style={[styles.tabText, selectedTab === item.key && styles.activeTabText]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {/* Orders List */}
       <FlatList
         data={filterOrders(ordersData)}
         renderItem={renderOrderCard}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id || item._id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.ordersList}
+        ListEmptyComponent={
+          loadingOrders ? (
+            <Text style={{ textAlign: 'center', marginTop: 40 }}>Loading orders...</Text>
+          ) : ordersError ? (
+            <Text style={{ textAlign: 'center', marginTop: 40, color: 'red' }}>Error: {ordersError}</Text>
+          ) : (
+            <Text style={{ textAlign: 'center', marginTop: 40 }}>No orders found.</Text>
+          )
+        }
       />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  filterTabsWrapper: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
   container: {
     flex: 1,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 45,
@@ -192,13 +191,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 32,
     marginBottom: 20,
+    gap: 12,
   },
   tab: {
-    flex: 1,
-    paddingVertical: 12,
+    minWidth: 110,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginHorizontal: 4,
-    borderRadius: 20,
+    borderRadius: 22,
     backgroundColor: colors.neutrals.lightGray,
   },
   activeTab: {
@@ -217,7 +216,7 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     backgroundColor: 'white',
-    marginHorizontal: 32,
+    marginHorizontal: 20,
     marginBottom: 16,
     borderRadius: 16,
     padding: 20,
