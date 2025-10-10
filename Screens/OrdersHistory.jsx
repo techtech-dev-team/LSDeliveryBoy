@@ -106,7 +106,7 @@ const OrdersHistory = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Order History</Text>
@@ -114,7 +114,7 @@ const OrdersHistory = ({ navigation }) => {
 
       {/* Filter Tabs */}
       <View style={styles.filterTabs}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tab, selectedTab === 'all' && styles.activeTab]}
           onPress={() => setSelectedTab('all')}
         >
@@ -122,7 +122,7 @@ const OrdersHistory = ({ navigation }) => {
             All
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tab, selectedTab === 'recent' && styles.activeTab]}
           onPress={() => setSelectedTab('recent')}
         >
@@ -130,7 +130,7 @@ const OrdersHistory = ({ navigation }) => {
             Recent
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tab, selectedTab === 'completed' && styles.activeTab]}
           onPress={() => setSelectedTab('completed')}
         >
@@ -138,7 +138,17 @@ const OrdersHistory = ({ navigation }) => {
             Completed
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === 'failed' && styles.activeTab]}
+          onPress={() => setSelectedTab('failed')}
+        >
+          <Text style={[styles.tabText, selectedTab === 'failed' && styles.activeTabText]}>
+            Failed
+          </Text>
+        </TouchableOpacity>
+
+
+        <TouchableOpacity
           style={[styles.tab, selectedTab === 'cancelled' && styles.activeTab]}
           onPress={() => setSelectedTab('cancelled')}
         >
