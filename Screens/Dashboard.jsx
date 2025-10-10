@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,7 +13,8 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Animated
 } from 'react-native';
 import { colors, typography } from '../components/colors';
 import { dashboardAPI } from '../utils/dashboard';
@@ -23,6 +24,9 @@ const Dashboard = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Animation refs
+  const rotationValue = useRef(new Animated.Value(0)).current;
   
   // Dashboard states
   const [isOnline, setIsOnline] = useState(false);
@@ -94,7 +98,7 @@ const Dashboard = ({ navigation }) => {
   // Auto status management based on order count
   const checkAndManageStatus = async (currentDeliveries = deliveries, currentOnlineStatus = isOnline) => {
     const activeOrders = currentDeliveries.filter(delivery => 
-      ['assigned', 'picked_up', 'out_for_delivery'].includes(delivery.status)
+      ['assigned', 'packed', 'picked_up', 'out_for_delivery'].includes(delivery.status)
     );
     
     console.log(`📊 Active orders count: ${activeOrders.length}, Current status: ${currentOnlineStatus ? 'online' : 'offline'}`);
@@ -489,9 +493,21 @@ const Dashboard = ({ navigation }) => {
     }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadDashboardData(false);
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      console.log('🔄 Pull-to-refresh initiated...');
+      
+      // Load dashboard data without showing the main loader
+      await loadDashboardData(false);
+      
+      console.log('✅ Pull-to-refresh completed successfully');
+    } catch (error) {
+      console.error('❌ Pull-to-refresh failed:', error);
+      // Don't show alert for pull-to-refresh, just log the error
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Initialize dashboard data
@@ -536,22 +552,54 @@ const Dashboard = ({ navigation }) => {
     };
   }, [isOnline]);
 
+  // Rotation animation for refresh button
+  useEffect(() => {
+    if (refreshing) {
+      // Start rotation animation
+      Animated.loop(
+        Animated.timing(rotationValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      // Stop animation and reset
+      rotationValue.stopAnimation();
+      rotationValue.setValue(0);
+    }
+  }, [refreshing]);
+
   const refreshDeliveries = async () => {
     try {
       console.log('🔄 Manually refreshing orders...');
       
+      // Show a brief loading state
+      setRefreshing(true);
+      
       // Refresh orders from API
       await loadDashboardData(false);
+      
+      console.log('✅ Manual refresh completed successfully');
       
       // Show success message
       Alert.alert(
         'Refreshed',
-        'Orders refreshed successfully!',
+        `Orders refreshed successfully! Found ${deliveries.length} orders.`,
         [{ text: 'OK' }]
       );
     } catch (error) {
-      console.error('Error refreshing orders:', error);
-      Alert.alert('Error', 'Failed to refresh orders');
+      console.error('❌ Error refreshing orders:', error);
+      Alert.alert(
+        'Refresh Failed', 
+        'Failed to refresh orders. Please check your connection and try again.',
+        [
+          { text: 'Retry', onPress: () => refreshDeliveries() },
+          { text: 'OK', style: 'cancel' }
+        ]
+      );
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -839,6 +887,7 @@ const Dashboard = ({ navigation }) => {
   const getStatusColor = (status) => {
     const statusColors = {
       assigned: colors.primary.yellow2,
+      packed: colors.primary.yellow2,
       picked_up: colors.primary.yellow1, 
       out_for_delivery: colors.primary.yellow3,
       delivered: colors.neutrals.dark
@@ -849,6 +898,7 @@ const Dashboard = ({ navigation }) => {
   const getStatusText = (status) => {
     const texts = {
       assigned: 'Assigned',
+      packed: 'Packed',
       picked_up: 'Picked Up',
       out_for_delivery: 'Out for Delivery', 
       delivered: 'Delivered'
@@ -957,7 +1007,7 @@ const Dashboard = ({ navigation }) => {
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
-        {item.status === 'assigned' && (
+        {(item.status === 'assigned' || item.status === 'packed') && (
           <TouchableOpacity 
             style={[styles.actionBtn, styles.primaryBtn]}
             onPress={() => handleStatusUpdate(item.id, 'picked_up')}
@@ -989,7 +1039,19 @@ const Dashboard = ({ navigation }) => {
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.actionBtn, styles.primaryBtn]}
-              onPress={() => handleStatusUpdate(item.id, 'delivered')}
+              onPress={() => {
+                Alert.alert(
+                  'Confirm Delivery',
+                  `Are you sure you want to mark order #${item.orderNumber || item.id} as delivered?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Yes, Delivered', 
+                      onPress: () => handleStatusUpdate(item.id, 'delivered') 
+                    }
+                  ]
+                );
+              }}
             >
               <Text style={styles.actionBtnText}>Mark Delivered</Text>
             </TouchableOpacity>
@@ -1074,7 +1136,7 @@ const Dashboard = ({ navigation }) => {
             <Text style={styles.statusLabel}>
               {isOnline ? 'Online' : 'Offline'}
             </Text>
-            {filteredDeliveries.filter(d => ['assigned', 'picked_up', 'out_for_delivery'].includes(d.status)).length > 2 && isOnline && (
+            {filteredDeliveries.filter(d => ['assigned', 'packed', 'picked_up', 'out_for_delivery'].includes(d.status)).length > 2 && isOnline && (
               <View style={styles.autoManageIndicator}>
                 <Text style={styles.autoManageText}>Auto-managed</Text>
               </View>
@@ -1082,7 +1144,7 @@ const Dashboard = ({ navigation }) => {
           </View>
           <Text style={styles.statusSubtext}>
             {isOnline ? 'Available for deliveries' : 'Not accepting orders'}
-            {filteredDeliveries.filter(d => ['assigned', 'picked_up', 'out_for_delivery'].includes(d.status)).length > 2 && 
+            {filteredDeliveries.filter(d => ['assigned', 'packed', 'picked_up', 'out_for_delivery'].includes(d.status)).length > 2 && 
               ' • Will auto-offline if overloaded'}
           </Text>
         </View>
@@ -1123,10 +1185,24 @@ const Dashboard = ({ navigation }) => {
             {deliveryBoyType === 'lalaji_store' ? 'Assigned' : 'Vendor Assigned'} Deliveries ({filteredDeliveries.length})
           </Text>
           <TouchableOpacity 
-            style={styles.testButton}
+            style={[styles.testButton, refreshing && styles.refreshingButton]}
             onPress={refreshDeliveries}
+            disabled={refreshing}
           >
-            <Ionicons name="add-circle-outline" size={20} color={colors.primary.yellow2} />
+            <Animated.View style={{
+              transform: [{
+                rotate: rotationValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', '360deg']
+                })
+              }]
+            }}>
+              <Ionicons 
+                name={refreshing ? "refresh" : "refresh-outline"} 
+                size={20} 
+                color={refreshing ? colors.neutrals.gray : colors.primary.yellow2} 
+              />
+            </Animated.View>
           </TouchableOpacity>
         </View>
         
@@ -1437,7 +1513,7 @@ const Dashboard = ({ navigation }) => {
 
                   {/* Action Buttons */}
                   <View style={styles.detailsActions}>
-                    {selectedDelivery.status === 'assigned' && (
+                    {(selectedDelivery.status === 'assigned' || selectedDelivery.status === 'packed') && (
                       <TouchableOpacity 
                         style={[styles.detailsActionBtn, styles.primaryActionBtn]}
                         onPress={() => {
@@ -1482,8 +1558,20 @@ const Dashboard = ({ navigation }) => {
                         <TouchableOpacity 
                           style={[styles.detailsActionBtn, styles.primaryActionBtn]}
                           onPress={() => {
-                            handleStatusUpdate(selectedDelivery.id, 'delivered');
-                            setShowDeliveryDetails(false);
+                            Alert.alert(
+                              'Confirm Delivery',
+                              `Are you sure you want to mark order #${selectedDelivery.orderNumber || selectedDelivery.id} as delivered?`,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { 
+                                  text: 'Yes, Delivered', 
+                                  onPress: () => {
+                                    handleStatusUpdate(selectedDelivery.id, 'delivered');
+                                    setShowDeliveryDetails(false);
+                                  }
+                                }
+                              ]
+                            );
                           }}
                         >
                           <Ionicons name="checkmark-circle" size={18} color="white" />
@@ -1504,7 +1592,7 @@ const Dashboard = ({ navigation }) => {
                         });
                       }}
                     >
-                      <Ionicons name="map" size={18} color={colors.primary.yellow2} />
+                      <Ionicons name="map" size={18} color={colors.neutrals.dark} />
                       <Text style={styles.mapActionText}>View on Map</Text>
                     </TouchableOpacity>
 
@@ -1517,7 +1605,7 @@ const Dashboard = ({ navigation }) => {
                           setShowIssueModal(true);
                         }}
                       >
-                        <Ionicons name="warning" size={18} color={colors.neutrals.gray} />
+                        <Ionicons name="warning" size={18} color={colors.neutrals.dark} />
                         <Text style={styles.issueBtnText}>Report Issue</Text>
                       </TouchableOpacity>
                     )}
@@ -1781,6 +1869,9 @@ const styles = StyleSheet.create({
   },
   testButton: {
     padding: 8,
+  },
+  refreshingButton: {
+    opacity: 0.6,
   },
   deliveriesList: {
     paddingHorizontal: 20,
@@ -2358,7 +2449,7 @@ const styles = StyleSheet.create({
   },
   detailsActions: {
     marginTop: 20,
-    gap: 16,
+    gap: 8,
     paddingHorizontal: 4,
   },
   detailsActionBtn: {
@@ -2369,28 +2460,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 12,
     gap: 10,
-    minHeight: 50,
+    minHeight: 40,
   },
   mapActionBtn: {
-    backgroundColor: colors.primary.yellow1,
+    backgroundColor: colors.primary.yellow2,
     borderWidth: 1,
     borderColor: colors.primary.yellow2,
-    marginTop: 8,
   },
   mapActionText: {
     fontSize: 14,
     fontFamily: typography.fontFamily.medium,
-    color: colors.primary.yellow2,
+    color: colors.neutrals.dark,
   },
   issueBtn: {
-    backgroundColor: colors.neutrals.lightGray,
+    backgroundColor: colors.neutrals.gray,
     borderWidth: 1,
     borderColor: colors.neutrals.gray,
   },
   issueBtnText: {
     fontSize: 14,
     fontFamily: typography.fontFamily.medium,
-    color: colors.neutrals.gray,
+    color: colors.neutrals.dark,
   },
   primaryActionBtn: {
     backgroundColor: colors.primary.yellow2,
