@@ -352,6 +352,112 @@ export const authAPI = {
     }
   },
 
+  // Alternative JSON-based document upload (for React Native compatibility)
+  uploadDocumentJSON: async (fileUri, documentType) => {
+    try {
+      const token = await authAPI.getToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('📤 Preparing JSON document upload:', { fileUri, documentType });
+
+      // Validate file URI
+      if (!fileUri || !fileUri.startsWith('file://')) {
+        throw new Error('Invalid file URI provided');
+      }
+
+      // Get file extension and MIME type
+      const fileExtension = fileUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
+      const fileName = `${documentType}_${Date.now()}.${fileExtension}`;
+
+      console.log('📤 File details:', {
+        fileUri,
+        fileExtension,
+        mimeType,
+        fileName
+      });
+
+      // Read file as base64 using fetch
+      let base64Data;
+      try {
+        const response = await fetch(fileUri);
+        const blob = await response.blob();
+        
+        // Convert blob to base64
+        base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            // Remove the data:mime;base64, prefix
+            const base64 = result.split(',')[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        
+        console.log('📤 File converted to base64, size:', base64Data.length);
+      } catch (fileError) {
+        console.error('📤 Error reading file:', fileError);
+        throw new Error('Failed to read file for upload');
+      }
+
+      // Prepare JSON payload
+      const uploadData = {
+        documentType,
+        fileName,
+        mimeType,
+        fileData: base64Data
+      };
+
+      // Make the request
+      const response = await fetch(`${API_CONFIG.getBaseURL()}/delivery/documents/upload-json`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(uploadData),
+      });
+
+      console.log('📤 Upload response status:', response.status);
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log('📤 Upload response data:', data);
+      } catch (parseError) {
+        console.error('📤 Failed to parse response JSON:', parseError);
+        const textResponse = await response.text();
+        console.log('📤 Response text:', textResponse);
+        throw new Error('Server returned invalid JSON response');
+      }
+      
+      if (!response.ok) {
+        const error = new Error(data.error || data.message || `Upload failed with status ${response.status}`);
+        error.details = data.details || [];
+        throw error;
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        url: data.url || data.data?.url,
+        message: data.message || 'Document uploaded successfully'
+      };
+    } catch (error) {
+      console.error('JSON Document upload error:', error);
+      return {
+        success: false,
+        error: error.message || 'Document upload failed',
+        details: error.details || []
+      };
+    }
+  },
+
   // Get delivery boy documents
   getDocuments: async () => {
     try {

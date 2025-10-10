@@ -164,7 +164,8 @@ const Documents = ({ navigation, route }) => {
       
       console.log('📤 Uploading document:', { documentType, photoUri });
       
-      const result = await authAPI.uploadDocument(photoUri, documentType);
+      // Try JSON upload method first (better React Native compatibility)
+      const result = await authAPI.uploadDocumentJSON(photoUri, documentType);
       
       if (result.success) {
         Alert.alert(
@@ -456,12 +457,15 @@ const Documents = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar backgroundColor={colors.primary.yellow2} barStyle="light-content" />
+      <StatusBar backgroundColor="white" barStyle="dark-content" />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.neutrals.dark} />
         </TouchableOpacity>
         <Text style={styles.title}>Documents</Text>
         <View style={styles.placeholder} />
@@ -580,11 +584,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
+    backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   backButton: {
     padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
   },
   title: {
     flex: 1,
