@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "my-expo-app",
-    "slug": "my-expo-app",
+    "name": "Lalaji Store",
+    "slug": "lalaji-store",
     "version": "1.0.0",
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,7 +29,8 @@
         "NSCameraUsageDescription": "This app uses the camera to capture delivery proof photos and ID verification images.",
         "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select images for delivery proof and ID verification.",
         "NSLocationWhenInUseUsageDescription": "This app uses location to show delivery addresses and provide navigation directions."
-      }
+      },
+      "bundleIdentifier": "com.piyushkatole16.lalaji-store"
     },
     "android": {
       "adaptiveIcon": {
