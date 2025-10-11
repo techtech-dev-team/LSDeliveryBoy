@@ -118,8 +118,90 @@ const OrderDetails = ({ navigation, route }) => {
         Linking.openURL(webUrl);
       });
     } else {
-      Alert.alert('Error', 'Delivery address coordinates not available');
+      // Fallback to address-based navigation
+      const addressString = formatAddress(address);
+      openGoogleMapsWithAddress(addressString, 'customer location');
     }
+  };
+
+  const openGoogleMapsWithAddress = (address, locationType = 'location') => {
+    if (!address || address === 'Address not available') {
+      Alert.alert('Error', `${locationType} address not available`);
+      return;
+    }
+    
+    const query = encodeURIComponent(address);
+    const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open Google Maps');
+      }
+    });
+  };
+
+  const getDirectionsToAddress = (address, locationType = 'destination') => {
+    if (!address || address === 'Address not available') {
+      Alert.alert('Error', `${locationType} address not available`);
+      return;
+    }
+    
+    const query = encodeURIComponent(address);
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${query}&travelmode=driving`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', `Unable to open directions to ${locationType}`);
+      }
+    });
+  };
+
+  const handleVendorNavigation = (vendorAddress) => {
+    if (vendorAddress && vendorAddress.coordinates) {
+      const { latitude, longitude } = vendorAddress.coordinates;
+      const url = Platform.OS === 'ios' 
+        ? `maps://app?daddr=${latitude},${longitude}`
+        : `google.navigation:q=${latitude},${longitude}`;
+      
+      Linking.openURL(url).catch(() => {
+        const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+        Linking.openURL(webUrl);
+      });
+    } else {
+      const addressString = formatAddress(vendorAddress);
+      getDirectionsToAddress(addressString, 'vendor location');
+    }
+  };
+
+  const getFullRoute = (vendorAddress, customerAddress) => {
+    const vendor = formatAddress(vendorAddress);
+    const customer = formatAddress(customerAddress);
+    
+    if (!vendor || vendor === 'Address not available') {
+      Alert.alert('Missing Address', 'Vendor address not available');
+      return;
+    }
+    
+    if (!customer || customer === 'Address not available') {
+      Alert.alert('Missing Address', 'Customer address not available');
+      return;
+    }
+
+    const origin = encodeURIComponent(vendor);
+    const destination = encodeURIComponent(customer);
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open full route directions');
+      }
+    });
   };
 
   const formatAddress = (address) => {
@@ -215,81 +297,332 @@ const OrderDetails = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* Customer & Address Combined Card */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="person-outline" size={18} color={colors.neutrals.dark} />
-            <Text style={styles.sectionTitle}>Customer & Delivery</Text>
-          </View>
-          
-          <View style={styles.customerRow}>
-            <View style={styles.customerDetails}>
-              <Text style={styles.customerName}>
-                {orderData.customer?.name || orderData.customerInfo?.name || 'Customer'}
-              </Text>
-              {orderData.customerInfo?.email && (
-                <Text style={styles.customerEmail}>{orderData.customerInfo.email}</Text>
-              )}
-            </View>
-            {(orderData.customer?.phone || orderData.customerInfo?.phone) && (
-              <TouchableOpacity style={styles.phoneButton} onPress={handleCallCustomer}>
-                <Ionicons name="call" size={14} color="white" />
-                <Text style={styles.phoneButtonText}>Call</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.addressRow}>
-            <Ionicons name="location-outline" size={16} color={colors.neutrals.gray} />
-            <Text style={styles.address}>{formatAddress(orderData.deliveryAddress)}</Text>
-            <TouchableOpacity style={styles.navigateButton} onPress={handleNavigateToLocation}>
-              <Ionicons name="navigate" size={14} color={colors.primary.yellow2} />
-            </TouchableOpacity>
-          </View>
-          
-          {orderData.specialInstructions && (
-            <View style={styles.instructionsSection}>
-              <Ionicons name="information-circle-outline" size={14} color={colors.primary.yellow2} />
-              <Text style={styles.instructions}>{orderData.specialInstructions}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Vendor Information */}
-        {orderData.vendors && orderData.vendors.length > 0 && (
+        {/* Customer & Address Combined Card - Hidden after delivery */}
+        {orderData.status !== 'delivered' && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="storefront-outline" size={18} color={colors.neutrals.dark} />
-              <Text style={styles.sectionTitle}>Store Information</Text>
+              <Ionicons name="person-outline" size={18} color={colors.neutrals.dark} />
+              <Text style={styles.sectionTitle}>Customer & Delivery</Text>
             </View>
             
-            {orderData.vendors.map((vendorData, index) => (
-              <View key={index} style={styles.vendorInfo}>
-                <Text style={styles.vendorName}>
-                  {vendorData.vendor?.vendorInfo?.businessName || 
-                   vendorData.vendor?.name || 
-                   vendorData.vendorInfo?.businessName ||
-                   'Store'}
+            <View style={styles.customerRow}>
+              <View style={styles.customerDetails}>
+                <Text style={styles.customerName}>
+                  {orderData.customer?.name || orderData.customerInfo?.name || 'Customer'}
                 </Text>
-                {(vendorData.vendor?.phoneNumber || vendorData.vendor?.phone) && (
-                  <Text style={styles.vendorPhone}>
-                    📞 {vendorData.vendor?.phoneNumber || vendorData.vendor?.phone}
-                  </Text>
-                )}
-                {vendorData.vendor?.vendorInfo?.businessAddress && (
-                  <Text style={styles.vendorAddress}>
-                    📍 {formatAddress(vendorData.vendor.vendorInfo.businessAddress)}
-                  </Text>
-                )}
-                {vendorData.subtotal && (
-                  <Text style={styles.vendorSubtotal}>
-                    Subtotal: ₹{vendorData.subtotal}
-                  </Text>
+                {orderData.customerInfo?.email && (
+                  <Text style={styles.customerEmail}>{orderData.customerInfo.email}</Text>
                 )}
               </View>
-            ))}
+              {(orderData.customer?.phone || orderData.customerInfo?.phone) && (
+                <TouchableOpacity style={styles.phoneButton} onPress={handleCallCustomer}>
+                  <Ionicons name="call" size={14} color="white" />
+                  <Text style={styles.phoneButtonText}>Call</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.addressRow}>
+              <Ionicons name="location-outline" size={16} color={colors.neutrals.gray} />
+              <Text style={styles.address}>{formatAddress(orderData.deliveryAddress)}</Text>
+              <View style={styles.customerLocationActions}>
+                <TouchableOpacity 
+                  style={styles.viewLocationButton} 
+                  onPress={() => {
+                    const address = formatAddress(orderData.deliveryAddress);
+                    openGoogleMapsWithAddress(address, 'customer location');
+                  }}
+                >
+                  <Ionicons name="map" size={12} color={colors.primary.yellow2} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.navigateButton} onPress={handleNavigateToLocation}>
+                  <Ionicons name="navigate" size={14} color={colors.primary.yellow2} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {orderData.specialInstructions && (
+              <View style={styles.instructionsSection}>
+                <Ionicons name="information-circle-outline" size={14} color={colors.primary.yellow2} />
+                <Text style={styles.instructions}>{orderData.specialInstructions}</Text>
+              </View>
+            )}
           </View>
         )}
+
+        {/* Delivery Confirmation Card - Shown only after delivery */}
+        {orderData.status === 'delivered' && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="checkmark-circle" size={18} color={colors.neutrals.success} />
+              <Text style={styles.sectionTitle}>Delivery Completed</Text>
+            </View>
+            
+            <View style={styles.deliveryCompletedInfo}>
+              <Text style={styles.deliveryCompletedText}>
+                This order has been successfully delivered.
+              </Text>
+              {orderData.delivery?.deliveredAt && (
+                <Text style={styles.deliveryCompletedTime}>
+                  Delivered on {formatDate(orderData.delivery.deliveredAt)}
+                </Text>
+              )}
+              <Text style={styles.privacyNote}>
+                Customer details are hidden for privacy protection.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Vendor Information */}
+        {(() => {
+          // First try to get vendor info from vendors array
+          let vendorDisplay = null;
+          
+          if (orderData.vendors && orderData.vendors.length > 0) {
+            // Check if vendors array has properly populated vendor data
+            const hasValidVendorData = orderData.vendors.some(v => 
+              v.vendor && (v.vendor.vendorInfo?.businessName || v.vendor.name)
+            );
+            
+            if (hasValidVendorData) {
+              vendorDisplay = (
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="storefront-outline" size={18} color={colors.neutrals.dark} />
+                    <Text style={styles.sectionTitle}>Store Information</Text>
+                  </View>
+                  
+                  {orderData.vendors.map((vendorData, index) => {
+                    console.log('🏪 Primary Vendor Data:', {
+                      index,
+                      hasVendor: !!vendorData.vendor,
+                      vendorId: vendorData.vendor?._id?.slice(-8),
+                      vendorName: vendorData.vendor?.vendorInfo?.businessName || vendorData.vendor?.name,
+                      hasVendorInfo: !!vendorData.vendorInfo,
+                      directBusinessName: vendorData.vendorInfo?.businessName,
+                      hasSubtotal: !!vendorData.subtotal,
+                      subtotal: vendorData.subtotal
+                    });
+                    
+                    return (
+                      <View key={index} style={styles.vendorInfo}>
+                        <View style={styles.vendorHeader}>
+                          <Text style={styles.vendorName}>
+                            {vendorData.vendor?.vendorInfo?.businessName || 
+                             vendorData.vendor?.name || 
+                             vendorData.vendorInfo?.businessName ||
+                             'LALJI_STORE'}
+                          </Text>
+                          {(vendorData.vendor?.phoneNumber || vendorData.vendor?.phone) && (
+                            <TouchableOpacity 
+                              style={styles.vendorCallButton}
+                              onPress={() => {
+                                const phone = vendorData.vendor?.phoneNumber || vendorData.vendor?.phone;
+                                const phoneUrl = Platform.OS === 'ios' ? `tel:${phone}` : `tel:${phone}`;
+                                Linking.openURL(phoneUrl);
+                              }}
+                            >
+                              <Ionicons name="call" size={12} color="white" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        
+                        {(vendorData.vendor?.phoneNumber || vendorData.vendor?.phone) && (
+                          <Text style={styles.vendorPhone}>
+                            📞 {vendorData.vendor?.phoneNumber || vendorData.vendor?.phone}
+                          </Text>
+                        )}
+                        
+                        {vendorData.vendor?.vendorInfo?.businessAddress && (
+                          <View style={styles.vendorAddressSection}>
+                            <View style={styles.vendorAddressRow}>
+                              <Text style={styles.vendorAddress}>
+                                📍 {formatAddress(vendorData.vendor.vendorInfo.businessAddress)}
+                              </Text>
+                              <TouchableOpacity 
+                                style={styles.vendorDirectionButton}
+                                onPress={() => handleVendorNavigation(vendorData.vendor.vendorInfo.businessAddress)}
+                              >
+                                <Ionicons name="navigate" size={12} color={colors.primary.yellow2} />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        )}
+                        
+                        {vendorData.subtotal && (
+                          <Text style={styles.vendorSubtotal}>
+                            Subtotal: ₹{vendorData.subtotal}
+                          </Text>
+                        )}
+                        
+                        {/* Route Planning Buttons */}
+                        {vendorData.vendor?.vendorInfo?.businessAddress && (
+                          <View style={styles.routeActions}>
+                            <TouchableOpacity 
+                              style={styles.viewStoreButton}
+                              onPress={() => {
+                                const address = formatAddress(vendorData.vendor.vendorInfo.businessAddress);
+                                openGoogleMapsWithAddress(address, 'vendor store');
+                              }}
+                            >
+                              <Ionicons name="map" size={14} color={colors.primary.yellow2} />
+                              <Text style={styles.viewStoreText}>View Store</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                              style={styles.fullRouteButton}
+                              onPress={() => getFullRoute(vendorData.vendor.vendorInfo.businessAddress, orderData.deliveryAddress)}
+                            >
+                              <Ionicons name="git-network-outline" size={14} color="white" />
+                              <Text style={styles.fullRouteText}>Full Route</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            }
+          }
+          
+          // Fallback: Extract vendor info from items if vendors array is not properly populated or doesn't exist
+          if (!vendorDisplay && orderData.items && orderData.items.some(item => item.vendor)) {
+            const uniqueVendors = [];
+            const vendorIds = new Set();
+            
+            orderData.items.forEach(item => {
+              if (item.vendor && !vendorIds.has(item.vendor._id || item.vendor.name)) {
+                vendorIds.add(item.vendor._id || item.vendor.name);
+                uniqueVendors.push(item.vendor);
+              }
+            });
+            
+            console.log('🔄 Using fallback vendor extraction:', {
+              itemsWithVendors: orderData.items.filter(item => item.vendor).length,
+              uniqueVendorsFound: uniqueVendors.length,
+              vendorNames: uniqueVendors.map(v => v.vendorInfo?.businessName || v.name),
+              firstVendorData: uniqueVendors[0] ? {
+                name: uniqueVendors[0].name,
+                businessName: uniqueVendors[0].vendorInfo?.businessName,
+                phone: uniqueVendors[0].phoneNumber,
+                hasAddress: !!uniqueVendors[0].vendorInfo?.businessAddress
+              } : null
+            });
+            
+            if (uniqueVendors.length > 0) {
+              vendorDisplay = (
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="storefront-outline" size={18} color={colors.neutrals.dark} />
+                    <Text style={styles.sectionTitle}>Store Information</Text>
+                  </View>
+                  
+                  {uniqueVendors.map((vendor, index) => (
+                    <View key={index} style={styles.vendorInfo}>
+                      <View style={styles.vendorHeader}>
+                        <Text style={styles.vendorName}>
+                          {vendor.vendorInfo?.businessName || vendor.name || 'LALJI_STORE'}
+                        </Text>
+                        {vendor.phoneNumber && (
+                          <TouchableOpacity 
+                            style={styles.vendorCallButton}
+                            onPress={() => {
+                              const phoneUrl = Platform.OS === 'ios' ? `tel:${vendor.phoneNumber}` : `tel:${vendor.phoneNumber}`;
+                              Linking.openURL(phoneUrl);
+                            }}
+                          >
+                            <Ionicons name="call" size={12} color="white" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      
+                      {vendor.phoneNumber && (
+                        <Text style={styles.vendorPhone}>
+                          📞 {vendor.phoneNumber}
+                        </Text>
+                      )}
+                      
+                      {vendor.vendorInfo?.businessAddress && (
+                        <View style={styles.vendorAddressSection}>
+                          <View style={styles.vendorAddressRow}>
+                            <Text style={styles.vendorAddress}>
+                              📍 {formatAddress(vendor.vendorInfo.businessAddress)}
+                            </Text>
+                            <TouchableOpacity 
+                              style={styles.vendorDirectionButton}
+                              onPress={() => handleVendorNavigation(vendor.vendorInfo.businessAddress)}
+                            >
+                              <Ionicons name="navigate" size={12} color={colors.primary.yellow2} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
+                      
+                      {/* Show subtotal from vendors array if available */}
+                      {orderData.vendors && orderData.vendors[0]?.subtotal && (
+                        <Text style={styles.vendorSubtotal}>
+                          Subtotal: ₹{orderData.vendors[0].subtotal}
+                        </Text>
+                      )}
+                      
+                      {/* Route Planning Buttons */}
+                      {vendor.vendorInfo?.businessAddress && (
+                        <View style={styles.routeActions}>
+                          <TouchableOpacity 
+                            style={styles.viewStoreButton}
+                            onPress={() => {
+                              const address = formatAddress(vendor.vendorInfo.businessAddress);
+                              openGoogleMapsWithAddress(address, 'vendor store');
+                            }}
+                          >
+                            <Ionicons name="map" size={14} color={colors.primary.yellow2} />
+                            <Text style={styles.viewStoreText}>View Store</Text>
+                          </TouchableOpacity>
+                          
+                          <TouchableOpacity 
+                            style={styles.fullRouteButton}
+                            onPress={() => getFullRoute(vendor.vendorInfo.businessAddress, orderData.deliveryAddress)}
+                          >
+                            <Ionicons name="git-network-outline" size={14} color="white" />
+                            <Text style={styles.fullRouteText}>Full Route</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              );
+            }
+          }
+          
+          // Default fallback if no vendor data found anywhere
+          if (!vendorDisplay) {
+            vendorDisplay = (
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="storefront-outline" size={18} color={colors.neutrals.dark} />
+                  <Text style={styles.sectionTitle}>Store Information</Text>
+                </View>
+                
+                <View style={styles.vendorInfo}>
+                  <View style={styles.vendorHeader}>
+                    <Text style={styles.vendorName}>LALJI_STORE</Text>
+                  </View>
+                  
+                  {orderData.vendors && orderData.vendors[0]?.subtotal && (
+                    <Text style={styles.vendorSubtotal}>
+                      Subtotal: ₹{orderData.vendors[0].subtotal}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            );
+          }
+          
+          return vendorDisplay;
+        })()}
 
         {/* Order Items - Compact */}
         <View style={styles.sectionCard}>
@@ -587,11 +920,23 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 6,
   },
+  customerLocationActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewLocationButton: {
+    padding: 6,
+    backgroundColor: colors.primary.yellow1 + '20',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   navigateButton: {
     padding: 6,
     backgroundColor: colors.primary.yellow1 + '20',
     borderRadius: 12,
-    marginLeft: 8,
+    marginLeft: 4,
   },
   instructionsSection: {
     flexDirection: 'row',
@@ -608,6 +953,31 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     flex: 1,
     lineHeight: 18,
+  },
+  deliveryCompletedInfo: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  deliveryCompletedText: {
+    fontSize: 14,
+    color: colors.neutrals.dark,
+    fontFamily: typography.fontFamily.medium,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  deliveryCompletedTime: {
+    fontSize: 13,
+    color: colors.neutrals.success,
+    fontFamily: typography.fontFamily.medium,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  privacyNote: {
+    fontSize: 12,
+    color: colors.neutrals.gray,
+    fontFamily: typography.fontFamily.regular,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   orderItem: {
     flexDirection: 'row',
@@ -656,10 +1026,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
   },
+  vendorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   vendorName: {
     fontSize: 15,
     fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.dark,
+    flex: 1,
+  },
+  vendorCallButton: {
+    backgroundColor: colors.primary.yellow2,
+    borderRadius: 12,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   vendorPhone: {
     fontSize: 13,
@@ -667,18 +1051,73 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     marginTop: 4,
   },
+  vendorAddressSection: {
+    marginTop: 4,
+  },
+  vendorAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
   vendorAddress: {
     fontSize: 13,
     color: colors.neutrals.gray,
     fontFamily: typography.fontFamily.regular,
-    marginTop: 4,
     lineHeight: 18,
+    flex: 1,
+  },
+  vendorDirectionButton: {
+    backgroundColor: colors.primary.yellow1 + '20',
+    borderRadius: 12,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
   },
   vendorSubtotal: {
     fontSize: 13,
     color: colors.primary.yellow2,
     fontFamily: typography.fontFamily.medium,
     marginTop: 4,
+  },
+  routeActions: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 8,
+  },
+  viewStoreButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary.yellow2,
+    backgroundColor: colors.primary.yellow1 + '20',
+    gap: 6,
+  },
+  viewStoreText: {
+    fontSize: 12,
+    color: colors.primary.yellow2,
+    fontFamily: typography.fontFamily.medium,
+  },
+  fullRouteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.neutrals.dark,
+    gap: 6,
+  },
+  fullRouteText: {
+    fontSize: 12,
+    color: 'white',
+    fontFamily: typography.fontFamily.medium,
   },
   noItems: {
     fontSize: 13,

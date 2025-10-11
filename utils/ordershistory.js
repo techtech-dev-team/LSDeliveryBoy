@@ -3,6 +3,8 @@ import { API_CONFIG } from './apiConfig';
 // Fetch single order details by ID (with populated fields)
 export const fetchOrderDetails = async (orderId, token) => {
   try {
+    console.log('🔍 Fetching order details for ID:', orderId);
+    
     const response = await fetch(`${API_CONFIG.getBaseURL()}/orders/${orderId}`, {
       method: 'GET',
       headers: {
@@ -10,11 +12,33 @@ export const fetchOrderDetails = async (orderId, token) => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
+    
     const data = await response.json();
+    console.log('📋 Order Details API Response:', {
+      success: data.success,
+      orderId: data.data?._id?.slice(-8),
+      hasVendors: !!data.data?.vendors,
+      vendorsCount: data.data?.vendors?.length || 0,
+      vendorStructure: data.data?.vendors?.[0] ? {
+        hasVendorField: !!data.data.vendors[0].vendor,
+        vendorId: data.data.vendors[0].vendor?._id?.slice(-8),
+        vendorName: data.data.vendors[0].vendor?.vendorInfo?.businessName || data.data.vendors[0].vendor?.name,
+        hasItems: !!data.data.vendors[0].items,
+        itemsCount: data.data.vendors[0].items?.length || 0
+      } : null,
+      hasItems: !!data.data?.items,
+      itemsCount: data.data?.items?.length || 0,
+      itemsStructure: data.data?.items?.[0] ? {
+        hasProduct: !!data.data.items[0].product,
+        hasVendor: !!data.data.items[0].vendor,
+        vendorName: data.data.items[0].vendor?.vendorInfo?.businessName || data.data.items[0].vendor?.name
+      } : null
+    });
+    
     if (!response.ok) throw new Error(data.message || 'Failed to fetch order details');
     return { success: true, order: data.data };
   } catch (error) {
-    console.error('Error fetching order details:', error);
+    console.error('❌ Error fetching order details:', error);
     return { success: false, message: error.message || 'Server error', order: null };
   }
 };

@@ -12,6 +12,7 @@ import {
   View
 } from 'react-native';
 import { colors } from '../components/colors';
+import { FontFamily } from '../utils/fonts';
 import { fetchAllOrders } from '../utils/ordershistory';
 
 const OrdersHistory = ({ navigation }) => {
@@ -209,7 +210,7 @@ const OrdersHistory = ({ navigation }) => {
             >
               <Ionicons 
                 name={tab.icon} 
-                size={12} 
+                size={16} 
                 color={selectedTab === tab.key ? '#FFFFFF' : '#C2C9D3'} 
               />
               <Text style={[styles.tabText, selectedTab === tab.key && styles.activeTabText]}>
@@ -261,6 +262,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
+    fontFamily: FontFamily.GilroyRegular,
     fontWeight: '300',
     color: colors.neutrals.dark,
     letterSpacing: -0.5,
@@ -272,19 +274,19 @@ const styles = StyleSheet.create({
   tabsWrapper: {
     flexDirection: 'row',
     backgroundColor: '#F5F5F5',
-    borderRadius: 25,
-    padding: 2,
-    height: 44,
+    borderRadius: 30,
+    padding: 3,
+    height: 56,
   },
   tab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 2,
-    borderRadius: 22,
-    gap: 3,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 26,
+    gap: 4,
     minWidth: 0,
     backgroundColor: 'transparent',
   },
@@ -297,8 +299,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tabText: {
-    fontSize: 9,
-    fontWeight: '600',
+    fontSize: 12,
+    fontFamily: FontFamily.GilroyMedium,
     color: '#C2C9D3',
     textAlign: 'center',
     flexShrink: 1,
@@ -306,29 +308,29 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontFamily: FontFamily.GilroyBold,
   },
   tabBadge: {
     backgroundColor: '#C2C9D3',
-    borderRadius: 6,
-    minWidth: 14,
-    height: 14,
+    borderRadius: 8,
+    minWidth: 18,
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
-    marginLeft: 1,
+    paddingHorizontal: 4,
+    marginLeft: 2,
   },
   activeTabBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   tabBadgeText: {
-    fontSize: 8,
-    fontWeight: 'bold',
+    fontSize: 10,
+    fontFamily: FontFamily.GilroyBold,
     color: '#FFFFFF',
   },
   activeTabBadgeText: {
     color: '#F8CB33',
-    fontWeight: '800',
+    fontFamily: FontFamily.GilroyBold,
   },
   ordersList: {
     paddingBottom: 20,
@@ -364,7 +366,7 @@ const styles = StyleSheet.create({
   },
   orderId: {
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: FontFamily.GilroyMedium,
     color: colors.neutrals.dark,
   },
   statusBadge: {
@@ -374,14 +376,14 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontFamily: FontFamily.GilroyBold,
     color: 'white',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   amount: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FontFamily.GilroyMedium,
     color: colors.neutrals.dark,
   },
   infoRow: {
@@ -398,8 +400,8 @@ const styles = StyleSheet.create({
   },
   customerText: {
     fontSize: 12,
+    fontFamily: FontFamily.GilroyRegular,
     color: colors.neutrals.gray,
-    fontWeight: '400',
   },
   vendorInfo: {
     flexDirection: 'row',
@@ -409,13 +411,13 @@ const styles = StyleSheet.create({
   },
   vendorText: {
     fontSize: 12,
+    fontFamily: FontFamily.GilroyMedium,
     color: colors.primary.yellow2,
-    fontWeight: '500',
   },
   itemCount: {
     fontSize: 11,
+    fontFamily: FontFamily.GilroyRegular,
     color: colors.neutrals.gray,
-    fontWeight: '400',
     backgroundColor: colors.neutrals.lightGray,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -429,13 +431,13 @@ const styles = StyleSheet.create({
   },
   dateTime: {
     fontSize: 11,
+    fontFamily: FontFamily.GilroyRegular,
     color: colors.neutrals.gray,
-    fontWeight: '400',
   },
   deliveredTime: {
     fontSize: 10,
+    fontFamily: FontFamily.GilroyMedium,
     color: colors.neutrals.success,
-    fontWeight: '500',
   },
   itemsSection: {
     marginTop: 8,
@@ -449,8 +451,8 @@ const styles = StyleSheet.create({
   },
   itemsHeaderText: {
     fontSize: 12,
+    fontFamily: FontFamily.GilroyMedium,
     color: colors.neutrals.gray,
-    fontWeight: '500',
   },
   itemsList: {
     marginLeft: 20,
@@ -463,20 +465,20 @@ const styles = StyleSheet.create({
   },
   itemName: {
     fontSize: 11,
+    fontFamily: FontFamily.GilroyRegular,
     color: colors.neutrals.dark,
-    fontWeight: '400',
     flex: 1,
     marginRight: 8,
   },
   itemDetails: {
     fontSize: 11,
+    fontFamily: FontFamily.GilroyRegular,
     color: colors.neutrals.gray,
-    fontWeight: '400',
   },
   moreItems: {
     fontSize: 10,
+    fontFamily: FontFamily.GilroyMedium,
     color: colors.primary.yellow2,
-    fontWeight: '500',
     fontStyle: 'italic',
     marginTop: 2,
   },
