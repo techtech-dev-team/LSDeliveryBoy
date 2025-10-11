@@ -12,7 +12,7 @@ import { colors } from '../components/colors';
 
 const Tab = createBottomTabNavigator();
 
-const BottomNavigation = () => {
+const BottomNavigation = ({ onLogout }) => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -68,7 +68,7 @@ const BottomNavigation = () => {
       />
       <Tab.Screen 
         name="Profile" 
-        component={Profile}
+        children={(props) => <Profile {...props} onLogout={onLogout} />}
         options={{
           tabBarLabel: 'Profile',
         }}

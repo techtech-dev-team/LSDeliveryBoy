@@ -64,6 +64,11 @@ const AppNavigation = () => {
     <Login {...props} onLoginSuccess={() => setIsAuthenticated(true)} />
   );
 
+  // Function to handle logout - this will be passed down to components
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+  };
+
   if (isLoading) {
     // You can return a loading screen here
     return null;
@@ -86,7 +91,10 @@ const AppNavigation = () => {
       ) : (
         // Main App Stack
         <>
-          <Stack.Screen name="MainApp" component={BottomNavigation} />
+          <Stack.Screen 
+            name="MainApp" 
+            children={() => <BottomNavigation onLogout={handleLogout} />}
+          />
           <Stack.Screen 
             name="EditProfile" 
             component={EditProfile}

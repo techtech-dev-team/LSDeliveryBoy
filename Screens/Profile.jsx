@@ -17,7 +17,7 @@ import { colors, typography } from '../components/colors';
 import { dashboardAPI } from '../utils/dashboard';
 import { authAPI } from '../utils/auth';
 
-const Profile = ({ navigation }) => {
+const Profile = ({ navigation, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
@@ -77,7 +77,10 @@ const Profile = ({ navigation }) => {
           onPress: async () => {
             try {
               await authAPI.logout();
-              navigation.getParent()?.navigate('Login');
+              // Call the onLogout prop to update authentication state
+              if (onLogout) {
+                onLogout();
+              }
             } catch (error) {
               console.error('Logout error:', error);
               Alert.alert('Error', 'Failed to logout properly');
