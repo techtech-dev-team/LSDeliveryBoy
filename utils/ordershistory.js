@@ -11,7 +11,6 @@ export const fetchOrderDetails = async (orderId, token) => {
       },
     });
     const data = await response.json();
-    console.log('Order Details Response:', data); // Debug log
     if (!response.ok) throw new Error(data.message || 'Failed to fetch order details');
     return { success: true, order: data.data };
   } catch (error) {
@@ -21,59 +20,49 @@ export const fetchOrderDetails = async (orderId, token) => {
 };
 
 // Fetch all orders (assigned + history) for delivery boy
-export const fetchAllOrders = async ({ page = 1, limit = 10, startDate, endDate, token }) => {
+export const fetchAllOrders = async ({ page = 1, limit = 10, startDate, endDate, token, tab }) => {
   try {
     // Build query params
     let params = `?page=${page}&limit=${limit}`;
     if (startDate && endDate) {
       params += `&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
     }
+    if (tab && tab !== 'all') {
+      params += `&tab=${tab}`;
+    }
 
-    // Fetch assigned orders
-    const assignedRes = await fetch(`${API_CONFIG.getBaseURL()}/delivery/deliveries${params}`, {
+    console.log('🔗 API Call:', `${API_CONFIG.getBaseURL()}/delivery/deliveries${params}`);
+
+    // Use the single deliveries endpoint which properly populates items
+    const response = await fetch(`${API_CONFIG.getBaseURL()}/delivery/deliveries${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
-    const assignedData = await assignedRes.json();
-    if (!assignedRes.ok) throw new Error(assignedData.message || 'Failed to fetch assigned orders');
+    
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to fetch orders');
 
-    // Fetch delivery history
-    const historyRes = await fetch(`${API_CONFIG.getBaseURL()}/delivery/history${params}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+    console.log('📦 API Response structure:', {
+      success: data.success,
+      ordersCount: data.data?.orders?.length || 0,
+      summary: data.data?.summary,
+      firstOrder: data.data?.orders?.[0] ? {
+        id: data.data.orders[0]._id?.slice(-8),
+        vendors: data.data.orders[0].vendors?.length || 0,
+        hasItems: !!data.data.orders[0].vendors?.[0]?.items,
+        itemsCount: data.data.orders[0].vendors?.[0]?.items?.length || 0
+      } : null
     });
-    const historyData = await historyRes.json();
-    if (!historyRes.ok) throw new Error(historyData.message || 'Failed to fetch delivery history');
-
-    // Merge orders
-    const orders = [...(assignedData.data?.orders || []), ...(historyData.data?.orders || [])];
-
-    // Merge pagination (optional: you can customize this)
-    const pagination = {
-      current: page,
-      pages: Math.max(
-        assignedData.data?.pagination?.pages || 1,
-        historyData.data?.pagination?.pages || 1
-      ),
-      total:
-        (assignedData.data?.pagination?.total || 0) + (historyData.data?.pagination?.total || 0),
-    };
-
-    // Merge earnings
-    const earnings = historyData.data?.earnings || 0;
-    console.log('Order Details Response:', orders); // Debug log
 
     return {
       success: true,
-      orders,
-      pagination,
-      earnings,
+      orders: data.data?.orders || [],
+      pagination: data.data?.pagination || { current: 1, pages: 1, total: 0 },
+      summary: data.data?.summary || {},
+      earnings: data.data?.earnings || 0,
     };
   } catch (error) {
     console.error('Error fetching all orders:', error);
@@ -82,6 +71,7 @@ export const fetchAllOrders = async ({ page = 1, limit = 10, startDate, endDate,
       message: error.message || 'Server error',
       orders: [],
       pagination: { current: 1, pages: 1, total: 0 },
+      summary: {},
       earnings: 0,
     };
   }

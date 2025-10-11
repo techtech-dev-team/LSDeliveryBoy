@@ -31,21 +31,21 @@ const OrdersHistory = ({ navigation }) => {
         const token = await AsyncStorage.getItem('delivery_boy_token');
         
         // Prepare API parameters based on selected tab
-        let apiParams = { page: 1, limit: 50, token };
+        let apiParams = { page: 1, limit: 50, token, tab: selectedTab };
         
-        if (selectedTab !== 'all') {
-          apiParams.tab = selectedTab;
-        }
-        
+        console.log('🔄 Fetching orders for tab:', selectedTab);
         const res = await fetchAllOrders(apiParams);
+        
         if (res.success) {
+          console.log('✅ Fetched orders:', res.orders?.length || 0, 'for tab:', selectedTab);
           setOrdersData(res.orders || []);
         } else {
+          console.error('❌ Orders fetch failed:', res.message);
           setOrdersError(res.message || 'Failed to fetch orders');
           setOrdersData([]);
         }
       } catch (err) {
-        console.error('Orders fetch error:', err);
+        console.error('💥 Orders fetch error:', err);
         setOrdersError(err.message || 'Network error occurred');
         setOrdersData([]);
       } finally {
@@ -97,6 +97,7 @@ const OrdersHistory = ({ navigation }) => {
 
   const renderOrderCard = ({ item }) => (
     <TouchableOpacity style={styles.orderCard} onPress={() => navigation.navigate('OrderDetails', { order: item })}>
+      {/* Header with Order ID, Status, and Amount */}
       <View style={styles.cardHeader}>
         <View style={styles.orderInfo}>
           <Text style={styles.orderId}>#{item.orderNumber || item._id?.slice(-8) || 'N/A'}</Text>
@@ -107,58 +108,75 @@ const OrdersHistory = ({ navigation }) => {
         <Text style={styles.amount}>₹{item.pricing?.total || item.pricing?.totalAmount || 0}</Text>
       </View>
 
-      <View style={styles.customerSection}>
+      {/* Customer and Items Count */}
+      <View style={styles.infoRow}>
         <View style={styles.customerInfo}>
-          <Ionicons name="person-outline" size={16} color={colors.neutrals.gray} />
-          <View style={styles.customerDetails}>
-            <Text style={styles.customerName}>
-              {item.customer?.name || item.customerInfo?.name || 'Customer'}
-            </Text>
-            {item.customerInfo?.phone && (
-              <Text style={styles.customerPhone}>📞 {item.customerInfo.phone}</Text>
-            )}
-          </View>
+          <Ionicons name="person-outline" size={14} color={colors.neutrals.gray} />
+          <Text style={styles.customerText}>
+            Customer ID: {item.customer?._id?.slice(-6) || 'N/A'}
+          </Text>
         </View>
         <Text style={styles.itemCount}>
-          {Array.isArray(item.items) ? item.items.length : 
-           item.orderItems?.length || item.vendors?.[0]?.items?.length || 0} items
+          {(() => {
+            // Use order.items.length as the primary source (this is populated by the API)
+            const itemCount = Array.isArray(item.items) ? item.items.length : 1;
+            return `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
+          })()}
         </Text>
       </View>
 
-      <View style={styles.addressSection}>
-        <Ionicons name="location-outline" size={16} color={colors.neutrals.gray} />
-        <Text style={styles.address}>
-          {item.deliveryAddress
-            ? [
-                item.deliveryAddress.landmark,
-                item.deliveryAddress.address,
-                item.deliveryAddress.city,
-                item.deliveryAddress.state,
-                item.deliveryAddress.pincode
-              ].filter(Boolean).join(', ')
-            : 'Address not available'}
-        </Text>
-      </View>
-
-      {/* Show vendor info for completed orders */}
-      {item.status === 'delivered' && item.vendors && item.vendors.length > 0 && (
-        <View style={styles.vendorSection}>
-          <Ionicons name="storefront-outline" size={16} color={colors.neutrals.gray} />
-          <Text style={styles.vendorInfo}>
-            Store: {item.vendors[0]?.vendor?.vendorInfo?.businessName || 
-                    item.vendors[0]?.vendor?.name || 'Store'}
-          </Text>
+      {/* Vendor Info */}
+      {item.vendors && item.vendors.length > 0 && (
+        <View style={styles.infoRow}>
+          <View style={styles.vendorInfo}>
+            <Ionicons name="storefront-outline" size={14} color={colors.neutrals.gray} />
+            <Text style={styles.vendorText}>
+              {item.vendors[0]?.vendor?.vendorInfo?.businessName || 
+               item.vendors[0]?.vendor?.name || 'LALJI_STORE'}
+            </Text>
+          </View>
         </View>
       )}
 
-      <View style={styles.timeSection}>
+      {/* Items List */}
+      {item.items && item.items.length > 0 && (
+        <View style={styles.itemsSection}>
+          <View style={styles.itemsHeader}>
+            <Ionicons name="bag-outline" size={14} color={colors.neutrals.gray} />
+            <Text style={styles.itemsHeaderText}>Items ({item.items.length})</Text>
+          </View>
+          <View style={styles.itemsList}>
+            {item.items.slice(0, 3).map((orderItem, index) => (
+              <View key={index} style={styles.itemRow}>
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {orderItem.name || orderItem.product?.name || 'Item'}
+                </Text>
+                <Text style={styles.itemDetails}>
+                  {orderItem.quantity}x ₹{orderItem.price || orderItem.mrp || 0}
+                </Text>
+              </View>
+            ))}
+            {item.items.length > 3 && (
+              <Text style={styles.moreItems}>
+                +{item.items.length - 3} more items
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Date and Delivery Info */}
+      <View style={styles.footerRow}>
         <Text style={styles.dateTime}>
           {item.createdAt
-            ? `${new Date(item.createdAt).toLocaleDateString()} at ${new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-            : item.date && item.time
-            ? `${item.date} at ${item.time}`
+            ? `${new Date(item.createdAt).toLocaleDateString('en-GB')} at ${new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
             : 'Date not available'}
         </Text>
+        {item.delivery?.deliveredAt && item.status === 'delivered' && (
+          <Text style={styles.deliveredTime}>
+            Delivered: {new Date(item.delivery.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -178,18 +196,21 @@ const OrdersHistory = ({ navigation }) => {
           {[
             { key: 'all', label: 'All', icon: 'list-outline' },
             { key: 'active', label: 'Active', icon: 'bicycle-outline' },
-            { key: 'completed', label: 'Completed', icon: 'checkmark-circle-outline' },
-            { key: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline' },
+            { key: 'completed', label: 'Done', icon: 'checkmark-circle-outline' },
+            { key: 'cancelled', label: 'Cancel', icon: 'close-circle-outline' },
           ].map(tab => (
             <TouchableOpacity
               key={tab.key}
               style={[styles.tab, selectedTab === tab.key && styles.activeTab]}
-              onPress={() => setSelectedTab(tab.key)}
+              onPress={() => {
+                console.log('🎯 Tab pressed:', tab.key, 'was:', selectedTab);
+                setSelectedTab(tab.key);
+              }}
             >
               <Ionicons 
                 name={tab.icon} 
-                size={16} 
-                color={selectedTab === tab.key ? 'white' : colors.neutrals.gray} 
+                size={12} 
+                color={selectedTab === tab.key ? '#FFFFFF' : '#C2C9D3'} 
               />
               <Text style={[styles.tabText, selectedTab === tab.key && styles.activeTabText]}>
                 {tab.label}
@@ -246,54 +267,68 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     paddingHorizontal: 16,
-    marginVertical: 16,
+    marginVertical: 12,
   },
   tabsWrapper: {
     flexDirection: 'row',
-    backgroundColor: colors.neutrals.lightGray,
-    borderRadius: 12,
-    padding: 4,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 25,
+    padding: 2,
+    height: 44,
   },
   tab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    borderRadius: 22,
+    gap: 3,
+    minWidth: 0,
+    backgroundColor: 'transparent',
   },
   activeTab: {
-    backgroundColor: colors.primary.yellow2,
+    backgroundColor: '#F8CB33',
+    shadowColor: '#F8CB33',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   tabText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.neutrals.gray,
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#C2C9D3',
+    textAlign: 'center',
+    flexShrink: 1,
+    numberOfLines: 1,
   },
   activeTabText: {
-    color: 'white',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   tabBadge: {
-    backgroundColor: colors.neutrals.gray,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
+    backgroundColor: '#C2C9D3',
+    borderRadius: 6,
+    minWidth: 14,
+    height: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 3,
+    marginLeft: 1,
   },
   activeTabBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   tabBadgeText: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#FFFFFF',
   },
   activeTabBadgeText: {
-    color: 'white',
+    color: '#F8CB33',
+    fontWeight: '800',
   },
   ordersList: {
     paddingBottom: 20,
@@ -301,18 +336,23 @@ const styles = StyleSheet.create({
   orderCard: {
     backgroundColor: 'white',
     marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 20,
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: colors.neutrals.lightGray,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
+    marginBottom: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutrals.lightGray,
   },
@@ -320,93 +360,125 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   orderId: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: 15,
+    fontWeight: '500',
     color: colors.neutrals.dark,
-    marginRight: 8,
   },
   statusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   statusText: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 10,
+    fontWeight: '600',
     color: 'white',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   amount: {
-    fontSize: 18,
-    fontWeight: '300',
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.neutrals.dark,
-    letterSpacing: -0.5,
   },
-  customerSection: {
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   customerInfo: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  customerDetails: {
-    marginLeft: 8,
-    flex: 1,
-  },
-  customerName: {
-    fontSize: 14,
-    color: colors.neutrals.dark,
-    fontWeight: '400',
-  },
-  customerPhone: {
-    fontSize: 12,
-    color: colors.neutrals.gray,
-    fontWeight: '400',
-    marginTop: 2,
-  },
-  itemCount: {
-    fontSize: 12,
-    color: colors.neutrals.gray,
-    fontWeight: '400',
-  },
-  addressSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  address: {
-    fontSize: 14,
-    color: colors.neutrals.gray,
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 20,
-  },
-  vendorSection: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    flex: 1,
+    gap: 6,
+  },
+  customerText: {
+    fontSize: 12,
+    color: colors.neutrals.gray,
+    fontWeight: '400',
   },
   vendorInfo: {
-    fontSize: 13,
-    color: colors.primary.yellow2,
-    marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+    gap: 6,
+  },
+  vendorText: {
+    fontSize: 12,
+    color: colors.primary.yellow2,
     fontWeight: '500',
   },
-  timeSection: {
-    alignItems: 'flex-end',
-  },
-  dateTime: {
-    fontSize: 12,
+  itemCount: {
+    fontSize: 11,
     color: colors.neutrals.gray,
     fontWeight: '400',
+    backgroundColor: colors.neutrals.lightGray,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  dateTime: {
+    fontSize: 11,
+    color: colors.neutrals.gray,
+    fontWeight: '400',
+  },
+  deliveredTime: {
+    fontSize: 10,
+    color: colors.neutrals.success,
+    fontWeight: '500',
+  },
+  itemsSection: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  itemsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  itemsHeaderText: {
+    fontSize: 12,
+    color: colors.neutrals.gray,
+    fontWeight: '500',
+  },
+  itemsList: {
+    marginLeft: 20,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  itemName: {
+    fontSize: 11,
+    color: colors.neutrals.dark,
+    fontWeight: '400',
+    flex: 1,
+    marginRight: 8,
+  },
+  itemDetails: {
+    fontSize: 11,
+    color: colors.neutrals.gray,
+    fontWeight: '400',
+  },
+  moreItems: {
+    fontSize: 10,
+    color: colors.primary.yellow2,
+    fontWeight: '500',
+    fontStyle: 'italic',
+    marginTop: 2,
   },
 });
 
