@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   StatusBar,
@@ -9,16 +9,32 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { authAPI, formatLoginData } from '../utils/auth';
 import { colors, typography } from '../components/colors';
+import { authAPI } from '../utils/auth';
 
-const Login = ({ navigation, onLoginSuccess }) => {
+const Login = ({ navigation, route, onLoginSuccess }) => {
   const [formData, setFormData] = useState({
     phoneNumber: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // helper to normalize prefill phone numbers
+  const prefillingNormalizer = (val) => {
+    if (!val) return '';
+    const onlyDigits = val.replace(/[^0-9]/g, '');
+    return onlyDigits.length > 10 ? onlyDigits.slice(-10) : onlyDigits;
+  };
+
+  useEffect(() => {
+    const prefill = route?.params?.prefillPhone;
+    if (prefill && prefill.length > 0) {
+      // strip country code if provided
+      const cleaned = prefill.startsWith('+91') ? prefillingNormalizer(prefill) : prefillingNormalizer(prefill);
+      setFormData(prev => ({ ...prev, phoneNumber: cleaned }));
+    }
+  }, [route?.params?.prefillPhone]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -47,6 +63,36 @@ const Login = ({ navigation, onLoginSuccess }) => {
       );
       
       if (result.success) {
+        // If backend indicates the account is not yet approved, navigate to PendingApproval
+        const account = result.data || {};
+
+        const accountIsPending = (user) => {
+          if (!user) return false;
+          const statusValues = [
+            user.status,
+            user.accountStatus,
+            user.approvalStatus,
+            user.deliveryBoyInfo?.approvalStatus,
+          ];
+          // common boolean flags
+          const boolFlags = [
+            user.isApproved === false,
+            user.isActive === false,
+            user.isApprovedByAdmin === false
+          ];
+
+          if (statusValues.some(s => typeof s === 'string' && s.toLowerCase() === 'pending')) return true;
+          if (boolFlags.some(v => v === true)) return true;
+          return false;
+        };
+
+        if (accountIsPending(account)) {
+          // Navigate to PendingApproval screen and do not mark user authenticated
+          navigation.navigate('PendingApproval', { user: account });
+          setLoading(false);
+          return;
+        }
+
         Alert.alert(
           'Success', 
           result.message || 'Login successful!', 
@@ -64,8 +110,27 @@ const Login = ({ navigation, onLoginSuccess }) => {
         );
       } else {
         // Handle API error response
-        let errorMessage = result.error || 'Login failed';
-        
+        let errorMessage = result.error || result.message || 'Login failed';
+
+        // If the backend returns a pending/approval message as an error, navigate to PendingApproval
+        const messageIndicatesPending = (msg) => {
+          if (!msg || typeof msg !== 'string') return false;
+          const lower = msg.toLowerCase();
+          return (
+            lower.includes('pending') ||
+            lower.includes('approval') ||
+            lower.includes('awaiting') ||
+            lower.includes('not approved') ||
+            lower.includes('verify')
+          );
+        };
+
+        if (messageIndicatesPending(errorMessage)) {
+          navigation.navigate('PendingApproval', { user: { phoneNumber: formData.phoneNumber, message: errorMessage } });
+          setLoading(false);
+          return;
+        }
+
         // If there are validation details, show them
         if (result.details && result.details.length > 0) {
           const fieldErrors = result.details.map(detail => 
@@ -73,7 +138,7 @@ const Login = ({ navigation, onLoginSuccess }) => {
           ).join('\n');
           errorMessage = `${errorMessage}\n\n${fieldErrors}`;
         }
-        
+
         Alert.alert('Login Failed', errorMessage);
       }
     } catch (error) {

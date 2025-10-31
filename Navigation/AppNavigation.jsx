@@ -1,20 +1,21 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import BankDetails from '../Screens/BankDetails';
 import Camera from '../Screens/Camera';
+import Documents from '../Screens/Documents';
+import EditAddress from '../Screens/EditAddress';
+import EditProfile from '../Screens/EditProfile';
+import HelpSupport from '../Screens/HelpSupport';
+import LocationPicker from '../Screens/LocationPicker';
 import Login from '../Screens/Login';
 import Maps from '../Screens/Maps';
-import Register from '../Screens/Register';
-import EditProfile from '../Screens/EditProfile';
-import EditAddress from '../Screens/EditAddress';
-import Documents from '../Screens/Documents';
-import BankDetails from '../Screens/BankDetails';
-import LocationPicker from '../Screens/LocationPicker';
-import HelpSupport from '../Screens/HelpSupport';
-import TermsPrivacy from '../Screens/TermsPrivacy';
 import OrderDetails from '../Screens/OrderDetails';
-import BottomNavigation from './BottomNavigation';
+import PendingApproval from '../Screens/PendingApproval';
+import Register from '../Screens/Register';
+import TermsPrivacy from '../Screens/TermsPrivacy';
 import { authAPI } from '../utils/auth';
+import BottomNavigation from './BottomNavigation';
 
 // Placeholder screens for missing navigations
 const PlaceholderScreen = ({ navigation, route }) => {
@@ -86,6 +87,7 @@ const AppNavigation = () => {
         // Auth Stack
         <>
           <Stack.Screen name="Login" component={LoginWithAuth} />
+          <Stack.Screen name="PendingApproval" component={PendingApproval} />
           <Stack.Screen name="Register" component={Register} />
         </>
       ) : (

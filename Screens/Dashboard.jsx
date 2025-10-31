@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Modal,
   Platform,
@@ -13,10 +14,10 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View,
-  Animated
+  View
 } from 'react-native';
 import { colors, typography } from '../components/colors';
+import { approvalAPI } from '../utils/approval';
 import { dashboardAPI } from '../utils/dashboard';
 
 const Dashboard = ({ navigation }) => {
@@ -260,23 +261,36 @@ const Dashboard = ({ navigation }) => {
       if (showLoader) setLoading(true);
       setError(null);
 
-      // Fetch delivery boy profile
+      // Fetch delivery boy profile and approval status
       try {
-        const profileResponse = await dashboardAPI.getProfile();
+        const profileResponse = await approvalAPI.getProfile();
         if (profileResponse.success) {
           const userData = profileResponse.data;
+          const approvalStatus = userData.deliveryBoyInfo?.verificationStatus || 'pending';
+          
+          // Update delivery boy info
           setDeliveryBoyInfo({
             id: userData._id,
             name: userData.name || 'Unknown User',
             phone: userData.phoneNumber || '',
             isVerified: userData.isPhoneVerified || false,
-            approvalStatus: userData.deliveryBoyInfo?.approvalStatus || userData.isActive ? 'approved' : 'pending'
+            approvalStatus: approvalStatus
           });
+          
+          // Check if pending and navigate to approval screen
+          if (approvalStatus === 'pending') {
+            navigation.replace('PendingApproval');
+            return; // Exit early since we're redirecting
+          }
           
           // Set delivery boy type based on profile data
           if (userData.deliveryBoyInfo?.deliveryPartner) {
             setDeliveryBoyType(userData.deliveryBoyInfo.deliveryPartner === 'lalaji_network' ? 'lalaji_store' : 'vendor_managed');
           }
+        } else if (profileResponse.needsLogin) {
+          // Token missing or expired, redirect to login
+          navigation.replace('Login');
+          return;
         }
       } catch (profileError) {
         console.warn('Profile API error:', profileError);
@@ -419,7 +433,7 @@ const Dashboard = ({ navigation }) => {
       // Don't show alert on every refresh, only on initial load
       if (showLoader) {
         Alert.alert(
-          'Connection Error', 
+          'Connection Error',
           'Failed to load dashboard data. Please check your internet connection and try again.',
           [
             { text: 'Retry', onPress: () => loadDashboardData(true) },
@@ -587,7 +601,7 @@ const Dashboard = ({ navigation }) => {
     } catch (error) {
       console.error('❌ Error refreshing orders:', error);
       Alert.alert(
-        'Refresh Failed', 
+        'Refresh Failed',
         'Failed to refresh orders. Please check your connection and try again.',
         [
           { text: 'Retry', onPress: () => refreshDeliveries() },
@@ -772,8 +786,8 @@ const Dashboard = ({ navigation }) => {
 
       if (response.success) {
         // Update local state
-        const updatedDeliveries = deliveries.map(delivery => 
-          delivery.id === orderId 
+        const updatedDeliveries = deliveries.map(delivery =>
+          delivery.id === orderId
             ? { ...delivery, status: newStatus }
             : delivery
         );
@@ -841,9 +855,9 @@ const Dashboard = ({ navigation }) => {
       if (!notification.isRead) {
         await dashboardAPI.markNotificationRead(notification.id);
         // Update local state
-        setNotificationsList(prev => 
-          prev.map(n => 
-            n.id === notification.id 
+        setNotificationsList(prev =>
+          prev.map(n =>
+            n.id === notification.id
               ? { ...n, isRead: true }
               : n
           )
@@ -884,7 +898,7 @@ const Dashboard = ({ navigation }) => {
     const statusColors = {
       assigned: colors.primary.yellow2,
       packed: colors.primary.yellow2,
-      picked_up: colors.primary.yellow1, 
+      picked_up: colors.primary.yellow1,
       out_for_delivery: colors.primary.yellow3,
       delivered: colors.neutrals.dark
     };
@@ -896,14 +910,14 @@ const Dashboard = ({ navigation }) => {
       assigned: 'Assigned',
       packed: 'Packed',
       picked_up: 'Picked Up',
-      out_for_delivery: 'Out for Delivery', 
+      out_for_delivery: 'Out for Delivery',
       delivered: 'Delivered'
     };
     return texts[status] || status;
   };
 
   const renderDeliveryCard = ({ item }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.deliveryCard}
       onPress={() => handleDeliveryCardPress(item)}
       activeOpacity={0.7}
@@ -925,7 +939,7 @@ const Dashboard = ({ navigation }) => {
           <Ionicons name="person-outline" size={16} color={colors.neutrals.gray} />
           <Text style={styles.customerName}>{item.customerName}</Text>
           {item.customerPhone && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.phoneButton}
               onPress={() => {
                 // Handle phone call
@@ -1004,7 +1018,7 @@ const Dashboard = ({ navigation }) => {
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
         {(item.status === 'assigned' || item.status === 'packed') && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionBtn, styles.primaryBtn]}
             onPress={() => handleStatusUpdate(item.id, 'picked_up')}
           >
@@ -1013,7 +1027,7 @@ const Dashboard = ({ navigation }) => {
         )}
         
         {item.status === 'picked_up' && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionBtn, styles.primaryBtn]}
             onPress={() => handleStatusUpdate(item.id, 'out_for_delivery')}
           >
@@ -1023,17 +1037,17 @@ const Dashboard = ({ navigation }) => {
         
         {item.status === 'out_for_delivery' && (
           <>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.actionBtn, styles.cameraBtn]}
-              onPress={() => navigation.navigate('Camera', { 
-                type: 'delivery-proof', 
-                orderId: item.id 
+              onPress={() => navigation.navigate('Camera', {
+                type: 'delivery-proof',
+                orderId: item.id
               })}
             >
               <Ionicons name="camera-outline" size={16} color="white" />
               <Text style={styles.actionBtnText}>Take Photo</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.actionBtn, styles.primaryBtn]}
               onPress={() => {
                 Alert.alert(
@@ -1041,9 +1055,9 @@ const Dashboard = ({ navigation }) => {
                   `Are you sure you want to mark order #${item.orderNumber || item.id} as delivered?`,
                   [
                     { text: 'Cancel', style: 'cancel' },
-                    { 
-                      text: 'Yes, Delivered', 
-                      onPress: () => handleStatusUpdate(item.id, 'delivered') 
+                    {
+                      text: 'Yes, Delivered',
+                      onPress: () => handleStatusUpdate(item.id, 'delivered')
                     }
                   ]
                 );
@@ -1055,7 +1069,7 @@ const Dashboard = ({ navigation }) => {
         )}
 
         {item.status !== 'delivered' && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.actionBtn, styles.secondaryBtn]}
             onPress={() => {
               setSelectedOrder(item.id);
@@ -1081,7 +1095,7 @@ const Dashboard = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>      
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -1089,10 +1103,10 @@ const Dashboard = ({ navigation }) => {
           <Text style={styles.driverName}>{deliveryBoyInfo.name}</Text>
           <View style={styles.deliveryBoyBadge}>
             <View style={styles.badgeContent}>
-              <Ionicons 
-                name={deliveryBoyType === 'lalaji_store' ? 'storefront' : 'business'} 
-                size={12} 
-                color={colors.primary.yellow2} 
+              <Ionicons
+                name={deliveryBoyType === 'lalaji_store' ? 'storefront' : 'business'}
+                size={12}
+                color={colors.primary.yellow2}
               />
               <Text style={styles.badgeText}>
                 {deliveryBoyType === 'lalaji_store' ? 'Lalaji Store' : assignedVendor?.name}
@@ -1104,11 +1118,20 @@ const Dashboard = ({ navigation }) => {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.mapButton}
             onPress={() => navigation.navigate('Maps', { deliveries: filteredDeliveries })}
           >
             <Ionicons name="map-outline" size={24} color={colors.neutrals.dark} />
+          </TouchableOpacity>
+
+          {/* Header refresher: refresh dashboard data in background without full-screen loader */}
+          <TouchableOpacity
+            style={[styles.testButton, { marginRight: 6 }]}
+            onPress={() => loadDashboardData(false)}
+            accessibilityLabel="Refresh dashboard"
+          >
+            <Ionicons name="refresh-outline" size={22} color={colors.neutrals.dark} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.notificationButton}
