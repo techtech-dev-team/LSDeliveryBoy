@@ -10,17 +10,24 @@ import {
     TouchableOpacity,
     View,
     ActivityIndicator,
-    Platform
+    Platform,
+    Modal
 } from 'react-native';
 import { colors, typography } from '../components/colors';
 import { dashboardAPI } from '../utils/dashboard';
 import { approvalAPI } from '../utils/approval';
+import * as Location from 'expo-location';
 
 const EditProfile = ({ navigation, route }) => {
     const { userProfile: initialUserProfile, isReapplication = false, rejectionReason = null } = route.params || {};
     const [loading, setLoading] = useState(false);
     const [fetchingProfile, setFetchingProfile] = useState(isReapplication && !initialUserProfile);
     const [userProfile, setUserProfile] = useState(initialUserProfile);
+    const [showLocationModal, setShowLocationModal] = useState(false);
+    const [currentLocation, setCurrentLocation] = useState(null);
+    const [selectedLocation, setSelectedLocation] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
 
     // Fetch profile if we don't have it (especially for reapplication)
     useEffect(() => {
@@ -50,16 +57,135 @@ const EditProfile = ({ navigation, route }) => {
 
     // Form state
     const [formData, setFormData] = useState({
-        name: userProfile?.name || '',
-        fullName: userProfile?.deliveryBoyInfo?.personalInfo?.fullName || '',
-        phoneNumber: userProfile?.phoneNumber || '',
-        address: userProfile?.deliveryBoyInfo?.personalInfo?.address || '',
-        emergencyContact: userProfile?.deliveryBoyInfo?.personalInfo?.emergencyContact?.mobileNumber || '',
-        panNumber: userProfile?.deliveryBoyInfo?.identification?.panNumber || '',
-        vehicleNumber: userProfile?.deliveryBoyInfo?.vehicleInfo?.vehicleNumber || '',
-        vehicleType: userProfile?.deliveryBoyInfo?.vehicleInfo?.type || 'motorcycle',
-        experienceYears: userProfile?.deliveryBoyInfo?.experience?.years?.toString() || '0'
+        name: '',
+        fullName: '',
+        phoneNumber: '',
+        address: '',
+        emergencyContact: '',
+        panNumber: '',
+        vehicleNumber: '',
+        vehicleType: 'motorcycle',
+        experienceYears: '0'
     });
+
+    // Update form data when userProfile changes
+    useEffect(() => {
+        if (userProfile) {
+            setFormData({
+                name: userProfile.name || '',
+                fullName: userProfile.deliveryBoyInfo?.personalInfo?.fullName || '',
+                phoneNumber: userProfile.phoneNumber || '',
+                address: userProfile.deliveryBoyInfo?.personalInfo?.address || '',
+                emergencyContact: userProfile.deliveryBoyInfo?.personalInfo?.emergencyContact?.mobileNumber || '',
+                panNumber: userProfile.deliveryBoyInfo?.identification?.panNumber || '',
+                vehicleNumber: userProfile.deliveryBoyInfo?.vehicleInfo?.vehicleNumber || '',
+                vehicleType: userProfile.deliveryBoyInfo?.vehicleInfo?.type || 'motorcycle',
+                experienceYears: userProfile.deliveryBoyInfo?.experience?.years?.toString() || '0'
+            });
+        }
+    }, [userProfile]);
+
+    // Location functions
+    const requestLocationPermission = async () => {
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission denied', 'Please allow location access to use this feature.');
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.error('Location permission error:', error);
+            return false;
+        }
+    };
+
+    const getCurrentLocation = async () => {
+        try {
+            const hasPermission = await requestLocationPermission();
+            if (!hasPermission) return;
+
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.High,
+            });
+
+            const { latitude, longitude } = location.coords;
+            
+            // Reverse geocode to get address
+            const addressResults = await Location.reverseGeocodeAsync({
+                latitude,
+                longitude,
+            });
+
+            if (addressResults.length > 0) {
+                const address = addressResults[0];
+                const fullAddress = `${address.street || ''} ${address.subregion || ''} ${address.city || ''} ${address.region || ''} ${address.postalCode || ''}`.trim();
+                
+                setCurrentLocation({ latitude, longitude, address: fullAddress });
+                setSelectedLocation({ latitude, longitude, address: fullAddress });
+                handleInputChange('address', fullAddress);
+            }
+        } catch (error) {
+            console.error('Get location error:', error);
+            Alert.alert('Error', 'Failed to get current location');
+        }
+    };
+
+    const searchLocation = async (query) => {
+        if (!query.trim()) {
+            setSearchResults([]);
+            return;
+        }
+
+        try {
+            const results = await Location.geocodeAsync(query);
+            const searchResultsWithAddresses = await Promise.all(
+                results.slice(0, 5).map(async (result) => {
+                    try {
+                        const addressResults = await Location.reverseGeocodeAsync({
+                            latitude: result.latitude,
+                            longitude: result.longitude,
+                        });
+                        
+                        if (addressResults.length > 0) {
+                            const address = addressResults[0];
+                            const fullAddress = `${address.street || ''} ${address.subregion || ''} ${address.city || ''} ${address.region || ''} ${address.postalCode || ''}`.trim();
+                            return {
+                                ...result,
+                                address: fullAddress,
+                            };
+                        }
+                        return { ...result, address: query };
+                    } catch (error) {
+                        return { ...result, address: query };
+                    }
+                })
+            );
+            
+            setSearchResults(searchResultsWithAddresses);
+        } catch (error) {
+            console.error('Search location error:', error);
+        }
+    };
+
+    const selectSearchResult = (result) => {
+        setSelectedLocation({
+            latitude: result.latitude,
+            longitude: result.longitude,
+            address: result.address,
+        });
+        handleInputChange('address', result.address);
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowLocationModal(false);
+    };
+
+    const handleLocationSelect = () => {
+        if (selectedLocation) {
+            handleInputChange('address', selectedLocation.address);
+            setShowLocationModal(false);
+        }
+    };
 
     const handleInputChange = (field, value) => {
         setFormData(prev => ({
@@ -228,13 +354,26 @@ const EditProfile = ({ navigation, route }) => {
                         keyboardType="phone-pad"
                     />
 
-                    <InputField
-                        label="Address"
-                        value={formData.address}
-                        onChangeText={(value) => handleInputChange('address', value)}
-                        placeholder="Enter your address"
-                        multiline={true}
-                    />
+                    {/* Address Picker */}
+                    <View style={styles.inputContainer}>
+                        <Text style={styles.inputLabel}>Address</Text>
+                        <TouchableOpacity
+                            style={styles.locationButton}
+                            onPress={() => setShowLocationModal(true)}
+                        >
+                            <Ionicons name="location-outline" size={20} color={colors.neutrals.gray} />
+                            <Text style={[styles.locationButtonText, formData.address && styles.locationSelectedText]}>
+                                {formData.address || 'Select your address'}
+                            </Text>
+                            <Ionicons name="chevron-forward" size={16} color={colors.neutrals.gray} />
+                        </TouchableOpacity>
+                        {selectedLocation && (
+                            <View style={styles.selectedLocationInfo}>
+                                <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                                <Text style={styles.selectedLocationText}>Location selected</Text>
+                            </View>
+                        )}
+                    </View>
 
                     <InputField
                         label="Emergency Contact"
@@ -307,6 +446,88 @@ const EditProfile = ({ navigation, route }) => {
                     )}
                 </TouchableOpacity>
             </ScrollView>
+
+            {/* Location Selection Modal */}
+            <Modal
+                visible={showLocationModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+            >
+                <View style={styles.modalContainer}>
+                    {/* Modal Header */}
+                    <View style={styles.modalHeader}>
+                        <TouchableOpacity
+                            style={styles.modalCloseButton}
+                            onPress={() => setShowLocationModal(false)}
+                        >
+                            <Ionicons name="close" size={24} color={colors.neutrals.dark} />
+                        </TouchableOpacity>
+                        <Text style={styles.modalTitle}>Select Address</Text>
+                        <TouchableOpacity
+                            style={styles.modalSaveButton}
+                            onPress={handleLocationSelect}
+                            disabled={!selectedLocation}
+                        >
+                            <Text style={[styles.modalSaveButtonText, !selectedLocation && { opacity: 0.5 }]}>
+                                Done
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Search Container */}
+                    <View style={styles.searchContainer}>
+                        <View style={styles.searchInputContainer}>
+                            <Ionicons name="search-outline" size={20} color={colors.neutrals.gray} />
+                            <TextInput
+                                style={styles.searchInput}
+                                value={searchQuery}
+                                onChangeText={(text) => {
+                                    setSearchQuery(text);
+                                    searchLocation(text);
+                                }}
+                                placeholder="Search for a location"
+                                placeholderTextColor={colors.neutrals.gray}
+                            />
+                        </View>
+
+                        {/* Current Location Button */}
+                        <TouchableOpacity
+                            style={styles.currentLocationButton}
+                            onPress={getCurrentLocation}
+                        >
+                            <Ionicons name="locate" size={20} color="white" />
+                            <Text style={styles.currentLocationButtonText}>Use Current Location</Text>
+                        </TouchableOpacity>
+
+                        {/* Search Results */}
+                        {searchResults.length > 0 && (
+                            <ScrollView style={styles.searchResults} showsVerticalScrollIndicator={false}>
+                                {searchResults.map((result, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={styles.searchResultItem}
+                                        onPress={() => selectSearchResult(result)}
+                                    >
+                                        <Ionicons name="location-outline" size={16} color={colors.neutrals.gray} />
+                                        <Text style={styles.searchResultText}>{result.address}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        )}
+
+                        {/* Selected Location Display */}
+                        {selectedLocation && (
+                            <View style={styles.selectedLocationContainer}>
+                                <View style={styles.selectedLocationHeader}>
+                                    <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                                    <Text style={styles.selectedLocationTitle}>Selected Location</Text>
+                                </View>
+                                <Text style={styles.selectedLocationAddress}>{selectedLocation.address}</Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -446,6 +667,154 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: 'white',
         marginLeft: 8,
+    },
+    locationButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: colors.neutrals.lightGray,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: 'white',
+    },
+    locationButtonText: {
+        flex: 1,
+        fontSize: 16,
+        color: colors.neutrals.gray,
+        marginLeft: 8,
+    },
+    locationSelectedText: {
+        color: colors.neutrals.dark,
+    },
+    selectedLocationInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    selectedLocationText: {
+        fontSize: 14,
+        color: '#4CAF50',
+        marginLeft: 4,
+        fontWeight: '500',
+    },
+    modalContainer: {
+        flex: 1,
+        backgroundColor: 'white',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e9ecef',
+    },
+    modalCloseButton: {
+        padding: 8,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.neutrals.dark,
+        flex: 1,
+        textAlign: 'center',
+    },
+    modalSaveButton: {
+        backgroundColor: colors.primary.yellow2,
+        borderRadius: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    modalSaveButtonText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: 'white',
+    },
+    searchContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: '#fff',
+    },
+    searchInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderWidth: 1,
+        borderColor: '#e9ecef',
+        marginBottom: 12,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 16,
+        color: colors.neutrals.dark,
+        marginLeft: 8,
+        marginRight: 8,
+    },
+    currentLocationButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#007AFF',
+        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        marginBottom: 16,
+        justifyContent: 'center',
+    },
+    currentLocationButtonText: {
+        fontSize: 16,
+        color: 'white',
+        marginLeft: 8,
+        fontWeight: '500',
+    },
+    searchResults: {
+        maxHeight: 200,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#e9ecef',
+        marginBottom: 16,
+    },
+    searchResultItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    searchResultText: {
+        fontSize: 14,
+        color: colors.neutrals.dark,
+        marginLeft: 8,
+        flex: 1,
+    },
+    selectedLocationContainer: {
+        backgroundColor: '#f0f9f0',
+        borderRadius: 8,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#4CAF50',
+    },
+    selectedLocationHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    selectedLocationTitle: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#4CAF50',
+        marginLeft: 4,
+    },
+    selectedLocationAddress: {
+        fontSize: 13,
+        color: colors.neutrals.dark,
+        lineHeight: 18,
     },
 });
 

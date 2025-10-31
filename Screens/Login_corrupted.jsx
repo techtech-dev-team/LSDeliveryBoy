@@ -4,6 +4,55 @@ import {
   Alert,
   StatusBar,
   StyleSheet,
+              console.log('✅ Login - User is approved, proceeding with normal login');
+
+            Alert.alert(
+              'Success', 
+              result.message || 'Login successful!', 
+              [
+                { 
+                  text: 'OK', 
+                  onPress: () => {
+                    // Call the callback to update authentication state
+                    if (onLoginSuccess) {
+                      onLoginSuccess();
+                    }
+                  }
+                }
+              ]
+            );
+          } else {
+            console.error('Failed to fetch complete profile after login:', profileResponse.error);
+            // If profile fetch fails, treat as approved user for now
+            Alert.alert(
+              'Success', 
+              result.message || 'Login successful!', 
+              [
+                { 
+                  text: 'OK', 
+                  onPress: () => {
+                    if (onLoginSuccess) {
+                      onLoginSuccess();
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        } catch (profileError) {
+          console.error('Error fetching profile after login:', profileError);
+          // If profile fetch fails, treat as approved user for now
+          Alert.alert(
+            'Success', 
+            result.message || 'Login successful!', 
+            [
+              { 
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -76,91 +125,91 @@ const Login = ({ navigation, route, onLoginSuccess }) => {
             console.log('🔍 Login - Verification status:', account.deliveryBoyInfo?.verificationStatus);
 
             const accountIsPending = (user) => {
-              if (!user) return false;
-              
-              // Check for verification status first (most reliable)
-              const verificationStatus = user.deliveryBoyInfo?.verificationStatus;
-              if (verificationStatus) {
-                return verificationStatus === 'pending';
-              }
-              
-              // Fallback to other status fields
-              const statusValues = [
-                user.status,
-                user.accountStatus,
-                user.approvalStatus,
-                user.deliveryBoyInfo?.approvalStatus,
-              ];
-              
-              // common boolean flags
-              const boolFlags = [
-                user.isApproved === false,
-                user.isActive === false,
-                user.isApprovedByAdmin === false
-              ];
+          if (!user) return false;
+          
+          // Check for verification status first (most reliable)
+          const verificationStatus = user.deliveryBoyInfo?.verificationStatus;
+          if (verificationStatus) {
+            return verificationStatus === 'pending';
+          }
+          
+          // Fallback to other status fields
+          const statusValues = [
+            user.status,
+            user.accountStatus,
+            user.approvalStatus,
+            user.deliveryBoyInfo?.approvalStatus,
+          ];
+          
+          // common boolean flags
+          const boolFlags = [
+            user.isApproved === false,
+            user.isActive === false,
+            user.isApprovedByAdmin === false
+          ];
 
-              if (statusValues.some(s => typeof s === 'string' && s.toLowerCase() === 'pending')) return true;
-              if (boolFlags.some(v => v === true)) return true;
-              return false;
-            };
+          if (statusValues.some(s => typeof s === 'string' && s.toLowerCase() === 'pending')) return true;
+          if (boolFlags.some(v => v === true)) return true;
+          return false;
+        };
 
-            const accountIsRejected = (user) => {
-              if (!user) return false;
-              
-              // Check for verification status first
-              const verificationStatus = user.deliveryBoyInfo?.verificationStatus;
-              if (verificationStatus) {
-                return verificationStatus === 'rejected';
-              }
-              
-              // Fallback to other rejection indicators
-              const statusValues = [
-                user.status,
-                user.accountStatus,
-                user.approvalStatus,
-                user.deliveryBoyInfo?.approvalStatus,
-              ];
+        const accountIsRejected = (user) => {
+          if (!user) return false;
+          
+          // Check for verification status first
+          const verificationStatus = user.deliveryBoyInfo?.verificationStatus;
+          if (verificationStatus) {
+            return verificationStatus === 'rejected';
+          }
+          
+          // Fallback to other rejection indicators
+          const statusValues = [
+            user.status,
+            user.accountStatus,
+            user.approvalStatus,
+            user.deliveryBoyInfo?.approvalStatus,
+          ];
 
-              return statusValues.some(s => typeof s === 'string' && s.toLowerCase() === 'rejected');
-            };
+          return statusValues.some(s => typeof s === 'string' && s.toLowerCase() === 'rejected');
+        };
 
-            // Check for rejected status first
-            if (accountIsRejected(account)) {
-              const rejectionReason = account.deliveryBoyInfo?.verificationNotes || 'Account verification failed';
-              console.log('🔴 Login - User is rejected, navigating to RejectedAccount');
-              navigation.navigate('RejectedAccount', { 
-                user: account,
-                rejectionReason 
-              });
-              setLoading(false);
-              return;
-            }
+        // Check for rejected status first
+        if (accountIsRejected(account)) {
+          const rejectionReason = account.deliveryBoyInfo?.verificationNotes || 'Account verification failed';
+          console.log('🔴 Login - User is rejected, navigating to RejectedAccount');
+          navigation.navigate('RejectedAccount', { 
+            user: account,
+            rejectionReason 
+          });
+          setLoading(false);
+          return;
+        }
 
-            // Then check for pending status
-            if (accountIsPending(account)) {
-              console.log('🟡 Login - User is pending, navigating to PendingApproval');
-              navigation.navigate('PendingApproval', { user: account });
-              setLoading(false);
-              return;
-            }
+        // Then check for pending status
+        if (accountIsPending(account)) {
+          console.log('🟡 Login - User is pending, navigating to PendingApproval');
+          navigation.navigate('PendingApproval', { user: account });
+          setLoading(false);
+          return;
+        }
 
-            console.log('✅ Login - User is approved, proceeding with normal login');
+        console.log('✅ Login - User is approved, proceeding with normal login');
 
-            Alert.alert(
-              'Success', 
-              result.message || 'Login successful!', 
-              [
-                { 
-                  text: 'OK', 
-                  onPress: () => {
-                    // Call the callback to update authentication state
-                    if (onLoginSuccess) {
-                      onLoginSuccess();
-                    }
-                  }
+        Alert.alert(
+          'Success', 
+          result.message || 'Login successful!', 
+          [
+            { 
+              text: 'OK', 
+              onPress: () => {
+                // Call the callback to update authentication state
+                if (onLoginSuccess) {
+                  onLoginSuccess();
                 }
-              ]
-            );
+              }
+            }
+          ]
+        );
           } else {
             console.error('Failed to fetch complete profile after login:', profileResponse.error);
             // If profile fetch fails, treat as approved user for now

@@ -21,7 +21,7 @@ import { authAPI, formatRegistrationData } from '../utils/auth';
 import { colors, typography } from '../components/colors';
 
 const Register = ({ navigation }) => {
-  // Registration flow: 1: Phone, 2: Basic Info, 3: Location & Service Area, 4: Documents, 5: Bank Details
+  // Registration flow: 1: Phone, 2: Basic Info, 3: Location & Service Area
   const [currentStep, setCurrentStep] = useState(1);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -60,23 +60,8 @@ const Register = ({ navigation }) => {
     deliveryPartner: 'lalaji_network',
     vendorDeliveryId: '', // For joining vendor team
     
-    // Documents
-    panNumber: '',
-    aadharNumber: '',
-    licenseNumber: '',
-    experienceYears: '0',
-    
-    // Bank details
-    accountNumber: '',
-    ifsc: '',
-    upiId: '',
-    accountHolderName: '',
-    
-    // Document uploads
-    idProofUploaded: false,
-    idProofImage: null,
-    vehicleDocumentUploaded: false,
-    vehicleDocumentImage: null
+    // Basic professional info
+    experienceYears: '0'
   });
 
   const vehicleTypes = [
@@ -311,14 +296,6 @@ const Register = ({ navigation }) => {
       }
     } else if (currentStep === 3) {
       if (validateLocationStep()) {
-        setCurrentStep(4);
-      }
-    } else if (currentStep === 4) {
-      if (validateDocumentStep()) {
-        setCurrentStep(5);
-      }
-    } else if (currentStep === 5) {
-      if (validateBankDetailsStep()) {
         await handleRegistration();
       }
     }
@@ -606,10 +583,6 @@ const Register = ({ navigation }) => {
         return renderBasicInfoStep();
       case 3:
         return renderLocationStep();
-      case 4:
-        return renderDocumentStep();
-      case 5:
-        return renderBankDetailsStep();
       default:
         return renderPhoneStep();
     }
@@ -1509,10 +1482,10 @@ const Register = ({ navigation }) => {
       </View>
 
       {/* Progress Indicator */}
-      {currentStep <= 5 && (
+      {currentStep <= 3 && (
         <View style={styles.progressContainer}>
           <View style={styles.progressDots}>
-            {[1, 2, 3, 4, 5].map((step) => (
+            {[1, 2, 3].map((step) => (
               <View
                 key={step}
                 style={[
@@ -1559,13 +1532,11 @@ const Register = ({ navigation }) => {
               disabled={loading}
             >
               <Text style={styles.nextButtonText}>
-                {loading && currentStep === 5 
+                {loading && currentStep === 3 
                   ? 'Completing Registration...'
                   : currentStep === 1 
                     ? (verificationMethod === 'otp' ? 'Send OTP' : 'Continue with Password')
                     : currentStep === 2 ? 'Continue' 
-                    : currentStep === 3 ? 'Continue'
-                    : currentStep === 4 ? 'Continue'
                     : 'Complete Registration'}
               </Text>
             </TouchableOpacity>
