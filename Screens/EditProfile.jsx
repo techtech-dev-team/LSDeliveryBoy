@@ -18,7 +18,7 @@ import { dashboardAPI } from '../utils/dashboard';
 import { approvalAPI } from '../utils/approval';
 import * as Location from 'expo-location';
 
-const EditProfile = ({ navigation, route }) => {
+const EditProfile = ({ navigation, route, onStatusRefresh }) => {
     const { userProfile: initialUserProfile, isReapplication = false, rejectionReason = null } = route.params || {};
     const [loading, setLoading] = useState(false);
     const [fetchingProfile, setFetchingProfile] = useState(isReapplication && !initialUserProfile);
@@ -225,9 +225,11 @@ const EditProfile = ({ navigation, route }) => {
 
             // If this is a reapplication, reset verification status to pending
             if (isReapplication) {
+                console.log('🔄 EditProfile: Setting status to pending for reapplication');
                 updateData.deliveryBoyInfo.verificationStatus = 'pending';
                 updateData.deliveryBoyInfo.verificationNotes = 'Reapplication submitted for review';
                 updateData.deliveryBoyInfo.reappliedAt = new Date().toISOString();
+                console.log('📋 EditProfile: Reapplication data:', updateData.deliveryBoyInfo);
             }
 
             const response = await dashboardAPI.updateProfile(updateData);
@@ -246,6 +248,10 @@ const EditProfile = ({ navigation, route }) => {
                             text: 'OK',
                             onPress: () => {
                                 if (isReapplication) {
+                                    // Call refresh function to update AppNavigation state
+                                    if (onStatusRefresh) {
+                                        onStatusRefresh();
+                                    }
                                     // Navigate to PendingApproval after reapplication
                                     navigation.replace('PendingApproval', { 
                                         user: response.data,

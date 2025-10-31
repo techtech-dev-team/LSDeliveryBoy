@@ -1164,16 +1164,7 @@ const Dashboard = ({ navigation }) => {
             onPress={() => navigation.navigate('Maps', { deliveries: filteredDeliveries })}
           >
             <Ionicons name="map-outline" size={24} color={colors.neutrals.dark} />
-          </TouchableOpacity>
-
-          {/* Delivery Boy Info Button */}
-          <TouchableOpacity
-            style={[styles.testButton, { marginRight: 6 }]}
-            onPress={() => setShowDeliveryBoyDetails(true)}
-            accessibilityLabel="View delivery boy details"
-          >
-            <Ionicons name="information-circle-outline" size={22} color={colors.neutrals.dark} />
-          </TouchableOpacity>
+          </TouchableOpacity>         
 
           {/* Header refresher: refresh dashboard data in background without full-screen loader */}
           <TouchableOpacity

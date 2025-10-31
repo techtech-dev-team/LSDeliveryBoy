@@ -128,6 +128,7 @@ const Login = ({ navigation, route, onLoginSuccess }) => {
             if (accountIsRejected(account)) {
               const rejectionReason = account.deliveryBoyInfo?.verificationNotes || 'Account verification failed';
               console.log('🔴 Login - User is rejected, navigating to RejectedAccount');
+              console.log('🔴 Login - Rejection reason:', rejectionReason);
               navigation.navigate('RejectedAccount', { 
                 user: account,
                 rejectionReason 
@@ -139,6 +140,7 @@ const Login = ({ navigation, route, onLoginSuccess }) => {
             // Then check for pending status
             if (accountIsPending(account)) {
               console.log('🟡 Login - User is pending, navigating to PendingApproval');
+              console.log('🟡 Login - Pending verification notes:', account.deliveryBoyInfo?.verificationNotes);
               navigation.navigate('PendingApproval', { user: account });
               setLoading(false);
               return;

@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Linking, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors, typography } from '../components/colors';
 import { approvalAPI } from '../utils/approval';
+import { authAPI } from '../utils/auth';
 
-const PendingApproval = ({ navigation, route }) => {
+const PendingApproval = ({ navigation, route, onStatusRefresh }) => {
   const user = route?.params?.user || null;
   const [refreshing, setRefreshing] = useState(false);
 
@@ -60,129 +61,95 @@ const PendingApproval = ({ navigation, route }) => {
     try {
       setRefreshing(true);
       
-      // Fetch profile from the API
+      console.log('🔄 PendingApproval: Checking status...');
       const resp = await approvalAPI.getProfile();
       
-      // Handle API errors
-        if (!resp || !resp.success) {
-          const msg = resp?.error || 'Unable to fetch status. Please try again.';
+      if (!resp || !resp.success) {
+        const msg = resp?.error || 'Unable to fetch status. Please try again.';
 
-          // If token is missing or expired, ask user to re-login
-          if (resp?.needsLogin) {
-            Alert.alert(
-              'Session required',
-              'We need you to sign in to check your account status. Would you like to go to the login screen?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Go to Login', onPress: () => navigation.navigate('Login', { prefillPhone: user?.phoneNumber }) }
-              ]
-            );
-            return;
-          }
-
-          Alert.alert('Error', msg);
+        if (resp?.needsLogin) {
+          Alert.alert(
+            'Session required',
+            'We need you to sign in to check your account status. Would you like to go to the login screen?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Go to Login', onPress: () => navigation.navigate('Login', { prefillPhone: user?.phoneNumber }) }
+            ]
+          );
           return;
+        }
+
+        Alert.alert('Error', msg);
+        return;
       }
 
       const profile = resp.data || {};
-      console.log('Profile data:', profile);
+      console.log('🔍 PendingApproval: Profile data:', profile.deliveryBoyInfo?.verificationStatus);
 
-      // Check approval status for delivery boys
-      const isApproved = () => {
-        if (!profile) return false;
-
-        // For delivery boys, check the deliveryBoyInfo structure
-        if (profile.role === 'delivery_boy' && profile.deliveryBoyInfo) {
-          const verificationStatus = profile.deliveryBoyInfo.verificationStatus;
-          const isVerified = profile.deliveryBoyInfo.isVerified;
-          
-          console.log('Delivery Boy Status:', {
-            verificationStatus,
-            isVerified,
-            isActive: profile.isActive
-          });
-
-          // Check if approved
-          if (verificationStatus === 'approved' && isVerified === true) {
-            return true;
-          }
-          
-          // Check if rejected
-          if (verificationStatus === 'rejected') {
-            Alert.alert(
-              'Application Rejected',
-              `Your application has been rejected.\n\nReason: ${profile.deliveryBoyInfo.verificationNotes || 'No reason provided'}`,
-              [
-                {
-                  text: 'Contact Support',
-                  onPress: handleContactSupport
-                },
-                {
-                  text: 'OK',
-                  onPress: () => navigation.navigate('Login')
-                }
-              ]
-            );
-            return false;
-          }
-          
-          return false;
+      // Check the verification status
+      const status = profile.deliveryBoyInfo?.verificationStatus;
+      
+      if (status === 'approved') {
+        // Call refresh function to update AppNavigation state
+        if (onStatusRefresh) {
+          console.log('✅ PendingApproval: Calling status refresh for approved user');
+          onStatusRefresh();
         }
-
-        // For other roles, check general approval fields
-        const statusVals = [
-          profile.status,
-          profile.accountStatus,
-          profile.approvalStatus,
-        ];
-        
-        const boolFlags = [
-          profile.isApproved === true,
-          profile.isActive === true,
-          profile.isApprovedByAdmin === true
-        ];
-
-        if (statusVals.some(s => typeof s === 'string' && ['approved', 'active', 'verified'].includes(s.toLowerCase()))) {
-          return true;
-        }
-        if (boolFlags.some(v => v === true)) {
-          return true;
-        }
-        
-        return false;
-      };
-
-      if (isApproved()) {
         Alert.alert(
           'Account Approved! 🎉',
-          'Your account has been approved by our admin team. You can now sign in and start using the app.',
+          'Your account has been approved by our admin team. You can now start accepting deliveries.',
           [
             { 
-              text: 'Sign In Now', 
-              onPress: () => navigation.navigate('Login')
+              text: 'Continue', 
+              onPress: () => navigation.replace('MainApp')
             }
           ]
         );
-      } else {
-        // Check if still pending or rejected
-        if (profile.deliveryBoyInfo?.verificationStatus === 'pending') {
-          Alert.alert(
-            'Still Pending',
-            'Your account is still pending admin approval. Our team typically reviews applications within 24-48 hours.\n\nPlease check back later or contact support if you need assistance.',
-            [
-              {
-                text: 'Contact Support',
-                onPress: handleContactSupport
-              },
-              { text: 'OK' }
-            ]
-          );
-        } else {
-          Alert.alert(
-            'Still Pending',
-            'Your account is still being reviewed. Please check back later.'
-          );
+      } else if (status === 'rejected') {
+        // Call refresh function to update AppNavigation state
+        if (onStatusRefresh) {
+          console.log('🔴 PendingApproval: Calling status refresh for rejected user');
+          onStatusRefresh();
         }
+        const rejectionReason = profile.deliveryBoyInfo?.verificationNotes || 'Account verification failed';
+        Alert.alert(
+          'Application Rejected',
+          `Your application has been rejected.\n\nReason: ${rejectionReason}`,
+          [
+            {
+              text: 'View Details',
+              onPress: () => navigation.replace('RejectedAccount', { 
+                user: profile,
+                rejectionReason 
+              })
+            }
+          ]
+        );
+      } else if (status === 'pending') {
+        Alert.alert(
+          'Still Pending',
+          'Your account is still pending admin approval. Our team typically reviews applications within 24-48 hours.\n\nPlease check back later or contact support if you need assistance.',
+          [
+            {
+              text: 'Contact Support',
+              onPress: handleContactSupport
+            },
+            { text: 'OK' }
+          ]
+        );
+      } else {
+        console.log('⚠️ PendingApproval: Unknown status:', status);
+        Alert.alert(
+          'Status Unknown',
+          'Unable to determine your account status. Please contact support for assistance.',
+          [
+            {
+              text: 'Contact Support',
+              onPress: handleContactSupport
+            },
+            { text: 'OK' }
+          ]
+        );
       }
     } catch (err) {
       console.error('Refresh status error:', err);
@@ -193,13 +160,33 @@ const PendingApproval = ({ navigation, route }) => {
   };
 
   const handleLogout = async () => {
-    // Clear token and go back to Login screen
-    try {
-      await approvalAPI.clearToken();
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
-    navigation.navigate('Login');
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await authAPI.logout();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (err) {
+              console.error('Logout error:', err);
+              // Force logout even if API fails
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -220,7 +207,14 @@ const PendingApproval = ({ navigation, route }) => {
 
         <View style={styles.statusCard}>
           <Ionicons name="document-text-outline" size={24} color={colors.primary.yellow2} />
-          <Text style={styles.statusText}>Application Status: Pending Review</Text>
+          <View style={styles.statusTextContainer}>
+            <Text style={styles.statusText}>Application Status: Pending Review</Text>
+            {user?.deliveryBoyInfo?.reappliedAt && (
+              <Text style={styles.reapplicationText}>
+                Reapplication submitted: {new Date(user.deliveryBoyInfo.reappliedAt).toLocaleDateString()}
+              </Text>
+            )}
+          </View>
         </View>
 
         <TouchableOpacity 
@@ -244,7 +238,8 @@ const PendingApproval = ({ navigation, route }) => {
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.button, styles.ghostButton]} onPress={handleLogout}>
-          <Text style={[styles.buttonText, styles.ghostButtonText]}>Back to Login</Text>
+          <Ionicons name="log-out-outline" size={16} color="#333" style={styles.buttonIcon} />
+          <Text style={[styles.buttonText, styles.ghostButtonText]}>Logout</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -303,11 +298,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary.yellow2,
   },
-  statusText: {
+  statusTextContainer: {
     marginLeft: 10,
+    flex: 1,
+  },
+  statusText: {
     fontSize: 14,
     color: '#666',
     fontFamily: typography.fontFamily.medium,
+  },
+  reapplicationText: {
+    fontSize: 12,
+    color: '#999',
+    fontFamily: typography.fontFamily.regular,
+    marginTop: 2,
   },
   button: {
     marginTop: 16,

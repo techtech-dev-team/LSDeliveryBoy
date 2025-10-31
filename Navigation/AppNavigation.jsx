@@ -100,6 +100,8 @@ const AppNavigation = () => {
   const LoginWithAuth = (props) => (
     <Login {...props} onLoginSuccess={async () => {
       setIsAuthenticated(true);
+      // Clear current status to force fresh fetch
+      setUserStatus(null);
       // Re-check status after login with a small delay to ensure token is set
       setTimeout(() => {
         checkAuthStatus();
@@ -116,6 +118,15 @@ const AppNavigation = () => {
     }
     setIsAuthenticated(false);
     setUserStatus(null);
+  };
+
+  // Function to refresh user status - can be called by child components
+  const refreshUserStatus = async () => {
+    console.log('🔄 AppNavigation: Force refreshing user status...');
+    if (isAuthenticated) {
+      setUserStatus(null); // Clear current status first
+      await checkAuthStatus();
+    }
   };
 
   if (isLoading) {
@@ -164,11 +175,11 @@ const AppNavigation = () => {
         <>
           <Stack.Screen 
             name="RejectedAccount" 
-            children={(props) => <RejectedAccount {...props} onLogout={handleLogout} />}
+            children={(props) => <RejectedAccount {...props} onLogout={handleLogout} onStatusRefresh={refreshUserStatus} />}
           />
           <Stack.Screen 
             name="EditProfile" 
-            component={EditProfile}
+            children={(props) => <EditProfile {...props} onStatusRefresh={refreshUserStatus} />}
             options={{
               presentation: 'card',
               animation: 'slide_from_right',
@@ -210,10 +221,13 @@ const AppNavigation = () => {
       ) : userStatus === 'pending' ? (
         // Pending Stack (authenticated but pending)
         <>
-          <Stack.Screen name="PendingApproval" component={PendingApproval} />
+          <Stack.Screen 
+            name="PendingApproval" 
+            children={(props) => <PendingApproval {...props} onStatusRefresh={refreshUserStatus} />}
+          />
           <Stack.Screen 
             name="RejectedAccount" 
-            children={(props) => <RejectedAccount {...props} onLogout={handleLogout} />}
+            children={(props) => <RejectedAccount {...props} onLogout={handleLogout} onStatusRefresh={refreshUserStatus} />}
           />
           <Stack.Screen name="Login" component={LoginWithAuth} />
         </>
@@ -226,12 +240,12 @@ const AppNavigation = () => {
           />
           <Stack.Screen 
             name="RejectedAccount" 
-            children={(props) => <RejectedAccount {...props} onLogout={handleLogout} />}
+            children={(props) => <RejectedAccount {...props} onLogout={handleLogout} onStatusRefresh={refreshUserStatus} />}
           />
           <Stack.Screen name="PendingApproval" component={PendingApproval} />
           <Stack.Screen 
             name="EditProfile" 
-            component={EditProfile}
+            children={(props) => <EditProfile {...props} onStatusRefresh={refreshUserStatus} />}
             options={{
               presentation: 'card',
               animation: 'slide_from_right'

@@ -15,7 +15,7 @@ import { colors, typography } from '../components/colors';
 import { authAPI } from '../utils/auth';
 import { approvalAPI } from '../utils/approval';
 
-const RejectedAccount = ({ navigation, route, onLogout }) => {
+const RejectedAccount = ({ navigation, route, onLogout, onStatusRefresh }) => {
   const user = route?.params?.user || null;
   const rejectionReason = route?.params?.rejectionReason || 'Account verification failed';
   const [refreshing, setRefreshing] = useState(false);
@@ -98,6 +98,10 @@ const RejectedAccount = ({ navigation, route, onLogout }) => {
         const status = response.data.deliveryBoyInfo?.verificationStatus;
         
         if (status === 'approved') {
+          // Call refresh function to update AppNavigation state
+          if (onStatusRefresh) {
+            onStatusRefresh();
+          }
           Alert.alert(
             'Great News!',
             'Your account has been approved! You can now start accepting deliveries.',
@@ -109,6 +113,10 @@ const RejectedAccount = ({ navigation, route, onLogout }) => {
             ]
           );
         } else if (status === 'pending') {
+          // Call refresh function to update AppNavigation state
+          if (onStatusRefresh) {
+            onStatusRefresh();
+          }
           Alert.alert(
             'Status Updated',
             'Your account is now under review. Please wait for the approval.',
