@@ -19,6 +19,7 @@ import {
 import { colors, typography } from '../components/colors';
 import { approvalAPI } from '../utils/approval';
 import { dashboardAPI } from '../utils/dashboard';
+import { authAPI } from '../utils/auth';
 
 const Dashboard = ({ navigation }) => {
   // Loading and error states
@@ -37,6 +38,7 @@ const Dashboard = ({ navigation }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [showDeliveryBoyDetails, setShowDeliveryBoyDetails] = useState(false);
   
   // Auto status management states
   const [showGoOnlinePrompt, setShowGoOnlinePrompt] = useState(false);
@@ -271,17 +273,54 @@ const Dashboard = ({ navigation }) => {
           // Update delivery boy info
           setDeliveryBoyInfo({
             id: userData._id,
-            name: userData.name || 'Unknown User',
-            phone: userData.phoneNumber || '',
+            name: userData.name || userData.deliveryBoyInfo?.personalInfo?.fullName || 'Unknown User',
+            phone: userData.phoneNumber || userData.deliveryBoyInfo?.personalInfo?.mobileNumber || '',
             isVerified: userData.isPhoneVerified || false,
-            approvalStatus: approvalStatus
+            approvalStatus: approvalStatus,
+            fullData: userData // Store full user data for detailed view
           });
           
           // Check if pending and navigate to approval screen
           if (approvalStatus === 'pending') {
-            navigation.replace('PendingApproval');
+            console.log('🔴 Dashboard: User status is pending, redirecting to PendingApproval');
+            navigation.replace('PendingApproval', { user: userData });
             return; // Exit early since we're redirecting
           }
+          
+          // Check if rejected and navigate to rejection screen
+          if (approvalStatus === 'rejected') {
+            console.log('🔴 Dashboard: User status is rejected, redirecting to RejectedAccount');
+            navigation.replace('RejectedAccount', { 
+              user: userData,
+              rejectionReason: userData.deliveryBoyInfo?.verificationNotes || 'Account verification failed'
+            });
+            return; // Exit early since we're redirecting
+          }
+
+          // If not approved, don't allow access to dashboard
+          if (approvalStatus !== 'approved') {
+            console.log('🔴 Dashboard: User status is not approved:', approvalStatus);
+            Alert.alert(
+              'Account Status',
+              `Your account status is: ${approvalStatus}. Please contact support for assistance.`,
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    // Force logout and redirect
+                    authAPI.logout().then(() => {
+                      navigation.replace('Login');
+                    }).catch(() => {
+                      navigation.replace('Login');
+                    });
+                  }
+                }
+              ]
+            );
+            return;
+          }
+
+          console.log('✅ Dashboard: User status is approved, proceeding with dashboard load');
           
           // Set delivery boy type based on profile data
           if (userData.deliveryBoyInfo?.deliveryPartner) {
@@ -1099,23 +1138,25 @@ const Dashboard = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>Good Morning,</Text>
-          <Text style={styles.driverName}>{deliveryBoyInfo.name}</Text>
-          <View style={styles.deliveryBoyBadge}>
-            <View style={styles.badgeContent}>
-              <Ionicons
-                name={deliveryBoyType === 'lalaji_store' ? 'storefront' : 'business'}
-                size={12}
-                color={colors.primary.yellow2}
-              />
-              <Text style={styles.badgeText}>
-                {deliveryBoyType === 'lalaji_store' ? 'Lalaji Store' : assignedVendor?.name}
-              </Text>
+          <TouchableOpacity onPress={() => setShowDeliveryBoyDetails(true)}>
+            <Text style={styles.greeting}>Good Morning,</Text>
+            <Text style={styles.driverName}>{deliveryBoyInfo.name}</Text>
+            <View style={styles.deliveryBoyBadge}>
+              <View style={styles.badgeContent}>
+                <Ionicons
+                  name={deliveryBoyType === 'lalaji_store' ? 'storefront' : 'business'}
+                  size={12}
+                  color={colors.primary.yellow2}
+                />
+                <Text style={styles.badgeText}>
+                  {deliveryBoyType === 'lalaji_store' ? 'Lalaji Store' : assignedVendor?.name}
+                </Text>
+              </View>
+              {deliveryBoyInfo.isVerified && (
+                <Ionicons name="checkmark-circle" size={14} color={colors.primary.yellow2} />
+              )}
             </View>
-            {deliveryBoyInfo.isVerified && (
-              <Ionicons name="checkmark-circle" size={14} color={colors.primary.yellow2} />
-            )}
-          </View>
+          </TouchableOpacity>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -1123,6 +1164,15 @@ const Dashboard = ({ navigation }) => {
             onPress={() => navigation.navigate('Maps', { deliveries: filteredDeliveries })}
           >
             <Ionicons name="map-outline" size={24} color={colors.neutrals.dark} />
+          </TouchableOpacity>
+
+          {/* Delivery Boy Info Button */}
+          <TouchableOpacity
+            style={[styles.testButton, { marginRight: 6 }]}
+            onPress={() => setShowDeliveryBoyDetails(true)}
+            accessibilityLabel="View delivery boy details"
+          >
+            <Ionicons name="information-circle-outline" size={22} color={colors.neutrals.dark} />
           </TouchableOpacity>
 
           {/* Header refresher: refresh dashboard data in background without full-screen loader */}
@@ -1673,6 +1723,228 @@ const Dashboard = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* Delivery Boy Details Modal */}
+      <Modal
+        visible={showDeliveryBoyDetails}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowDeliveryBoyDetails(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Delivery Boy Details</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowDeliveryBoyDetails(false)}
+            >
+              <Ionicons name="close" size={24} color={colors.neutrals.dark} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {deliveryBoyInfo.fullData && (
+              <>
+                {/* Basic Information */}
+                <View style={styles.detailsSection}>
+                  <Text style={styles.sectionLabel}>Basic Information</Text>
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Name</Text>
+                      <Text style={styles.infoValue}>{deliveryBoyInfo.fullData.name || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Phone Number</Text>
+                      <Text style={styles.infoValue}>{deliveryBoyInfo.fullData.phoneNumber || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Verification Status</Text>
+                      <View style={styles.statusContainer}>
+                        <View style={[
+                          styles.statusBadge,
+                          {
+                            backgroundColor: deliveryBoyInfo.fullData.deliveryBoyInfo?.verificationStatus === 'approved' 
+                              ? '#10B981' 
+                              : deliveryBoyInfo.fullData.deliveryBoyInfo?.verificationStatus === 'rejected'
+                              ? '#EF4444'
+                              : '#F59E0B'
+                          }
+                        ]}>
+                          <Text style={styles.statusText}>
+                            {deliveryBoyInfo.fullData.deliveryBoyInfo?.verificationStatus === 'approved' ? 'Approved' :
+                             deliveryBoyInfo.fullData.deliveryBoyInfo?.verificationStatus === 'rejected' ? 'Rejected' : 'Pending'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Availability</Text>
+                      <View style={styles.statusContainer}>
+                        <View style={[styles.availabilityDot, {
+                          backgroundColor: deliveryBoyInfo.fullData.availability?.status === 'online' ? '#10B981' : '#6B7280'
+                        }]} />
+                        <Text style={styles.infoValue}>
+                          {deliveryBoyInfo.fullData.availability?.status === 'online' ? 'Online' : 'Offline'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Partner Type</Text>
+                      <Text style={styles.infoValue}>
+                        {deliveryBoyInfo.fullData.deliveryBoyInfo?.deliveryPartner === 'lalaji_network' ? 'Lalaji Network' : 'Company'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Vehicle Information */}
+                {deliveryBoyInfo.fullData.deliveryBoyInfo?.vehicleInfo && (
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionLabel}>Vehicle Information</Text>
+                    <View style={styles.infoGrid}>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Vehicle Type</Text>
+                        <Text style={styles.infoValue}>
+                          {deliveryBoyInfo.fullData.deliveryBoyInfo.vehicleInfo.type || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Vehicle Number</Text>
+                        <Text style={styles.infoValue}>
+                          {deliveryBoyInfo.fullData.deliveryBoyInfo.vehicleInfo.vehicleNumber || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>License Number</Text>
+                        <Text style={styles.infoValue}>N/A</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Aadhar Number</Text>
+                        <Text style={styles.infoValue}>N/A</Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>PAN Number</Text>
+                        <Text style={styles.infoValue}>
+                          {deliveryBoyInfo.fullData.deliveryBoyInfo.identification?.panNumber || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Experience</Text>
+                        <Text style={styles.infoValue}>
+                          {deliveryBoyInfo.fullData.deliveryBoyInfo.experience?.years || 0} years
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Bank Details */}
+                {deliveryBoyInfo.fullData.deliveryBoyInfo?.bankDetails && (
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionLabel}>Bank Details</Text>
+                    <View style={styles.infoGrid}>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Account Holder</Text>
+                        <Text style={styles.infoValue}>
+                          {deliveryBoyInfo.fullData.deliveryBoyInfo.bankDetails.accountHolderName || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Account Number</Text>
+                        <Text style={styles.infoValue}>
+                          {deliveryBoyInfo.fullData.deliveryBoyInfo.bankDetails.accountNumber 
+                            ? `***${deliveryBoyInfo.fullData.deliveryBoyInfo.bankDetails.accountNumber.slice(-4)}` 
+                            : 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>IFSC Code</Text>
+                        <Text style={styles.infoValue}>
+                          {deliveryBoyInfo.fullData.deliveryBoyInfo.bankDetails.ifsc || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>UPI ID</Text>
+                        <Text style={styles.infoValue}>
+                          {deliveryBoyInfo.fullData.deliveryBoyInfo.bankDetails.upiId || 'N/A'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Work Information */}
+                <View style={styles.detailsSection}>
+                  <Text style={styles.sectionLabel}>Work Information</Text>
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Working Hours</Text>
+                      <Text style={styles.infoValue}>
+                        {deliveryBoyInfo.fullData.deliveryBoyInfo?.workingHours 
+                          ? `${deliveryBoyInfo.fullData.deliveryBoyInfo.workingHours.start} - ${deliveryBoyInfo.fullData.deliveryBoyInfo.workingHours.end}`
+                          : 'N/A'}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Delivery Partner</Text>
+                      <Text style={styles.infoValue}>
+                        {deliveryBoyInfo.fullData.deliveryBoyInfo?.deliveryPartner === 'lalaji_network' 
+                          ? 'Lalaji Network' 
+                          : 'Company Managed'}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Address</Text>
+                      <Text style={styles.infoValue}>
+                        {deliveryBoyInfo.fullData.deliveryBoyInfo?.personalInfo?.address || 'N/A'}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Emergency Contact</Text>
+                      <Text style={styles.infoValue}>
+                        {deliveryBoyInfo.fullData.deliveryBoyInfo?.personalInfo?.emergencyContact?.mobileNumber || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Performance Statistics */}
+                {deliveryBoyInfo.fullData.deliveryStats && (
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionLabel}>Performance Statistics</Text>
+                    <View style={styles.statsGrid}>
+                      <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>
+                          {deliveryBoyInfo.fullData.deliveryStats.totalDeliveries || 0}
+                        </Text>
+                        <Text style={styles.statLabel}>Total Deliveries</Text>
+                      </View>
+                      <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>
+                          {deliveryBoyInfo.fullData.deliveryStats.completedToday || 0}
+                        </Text>
+                        <Text style={styles.statLabel}>Today Orders</Text>
+                      </View>
+                      <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>
+                          {deliveryBoyInfo.fullData.deliveryStats.rating ? deliveryBoyInfo.fullData.deliveryStats.rating.toFixed(1) : '0.0'}
+                        </Text>
+                        <Text style={styles.statLabel}>Rating</Text>
+                      </View>
+                      <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>
+                          ₹{deliveryBoyInfo.fullData.deliveryStats.totalEarnings || 0}
+                        </Text>
+                        <Text style={styles.statLabel}>Earnings</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
         </View>
       </Modal>
     </View>
@@ -2540,6 +2812,69 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: typography.fontFamily.medium,
     color: colors.neutrals.gray,
+  },
+
+  // Delivery Boy Details Modal Styles
+  infoGrid: {
+    gap: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutrals.lightGray,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.neutrals.gray,
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.neutrals.dark,
+    flex: 1,
+    textAlign: 'right',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flex: 1,
+  },
+  availabilityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: colors.neutrals.lightGray,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 20,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary.yellow2,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.neutrals.gray,
+    textAlign: 'center',
   },
 });
 
