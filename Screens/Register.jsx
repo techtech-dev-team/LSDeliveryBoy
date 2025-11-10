@@ -11,7 +11,8 @@ import {
   TouchableOpacity,
   View,
   Dimensions,
-  Platform
+  Platform,
+  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -472,22 +473,30 @@ const handleNext = async () => {
     setSearchResults([]);
   };
 
-  const requestPermissions = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (status !== 'granted' || cameraStatus.status !== 'granted') {
-      Alert.alert('Permission Required', 'Sorry, we need camera and gallery permissions to upload your ID proof!');
-      return false;
-    }
-    return true;
-  };
-
   const pickImageFromCamera = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
     try {
+      // Request camera permission
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+
+      if (cameraPermission.status !== 'granted') {
+        Alert.alert(
+          'Camera Permission Required',
+          'Please allow camera access to take photos of your ID proof.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => {
+              // On iOS, you can open settings, on Android the user needs to do it manually
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Alert.alert('Permission Required', 'Please go to Settings > Apps > Lalaji Store > Permissions to enable camera access.');
+              }
+            }}
+          ]
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -498,8 +507,8 @@ const handleNext = async () => {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const imageUri = result.assets[0].uri;
-        setFormData(prev => ({ 
-          ...prev, 
+        setFormData(prev => ({
+          ...prev,
           idProofUploaded: true,
           idProofImage: imageUri
         }));
@@ -512,10 +521,29 @@ const handleNext = async () => {
   };
 
   const pickImageFromGallery = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
     try {
+      // Request media library permission
+      const galleryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (galleryPermission.status !== 'granted') {
+        Alert.alert(
+          'Gallery Permission Required',
+          'Please allow gallery access to upload photos of your ID proof.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => {
+              // On iOS, you can open settings, on Android the user needs to do it manually
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Alert.alert('Permission Required', 'Please go to Settings > Apps > Lalaji Store > Permissions to enable gallery access.');
+              }
+            }}
+          ]
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -527,15 +555,15 @@ const handleNext = async () => {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const imageUri = result.assets[0].uri;
         const fileSize = result.assets[0].fileSize;
-        
+
         // Check file size (5MB limit)
         if (fileSize && fileSize > 5 * 1024 * 1024) {
           Alert.alert('Error', 'Image size should be less than 5MB. Please choose a smaller image.');
           return;
         }
 
-        setFormData(prev => ({ 
-          ...prev, 
+        setFormData(prev => ({
+          ...prev,
           idProofUploaded: true,
           idProofImage: imageUri
         }));
