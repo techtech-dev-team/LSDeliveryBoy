@@ -169,6 +169,14 @@ const AppNavigation = () => {
         <>
           <Stack.Screen name="Login" component={LoginWithAuth} />
           <Stack.Screen name="Register" component={Register} />
+          <Stack.Screen
+            name="PendingApproval"
+            children={(props) => <PendingApproval {...props} onStatusRefresh={refreshUserStatus} />}
+          />
+          <Stack.Screen
+            name="RejectedAccount"
+            children={(props) => <RejectedAccount {...props} onLogout={handleLogout} onStatusRefresh={refreshUserStatus} />}
+          />
         </>
       ) : userStatus === 'rejected' ? (
         // Rejected Stack (authenticated but rejected)

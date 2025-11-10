@@ -129,11 +129,20 @@ const Login = ({ navigation, route, onLoginSuccess }) => {
               const rejectionReason = account.deliveryBoyInfo?.verificationNotes || 'Account verification failed';
               console.log('🔴 Login - User is rejected, navigating to RejectedAccount');
               console.log('🔴 Login - Rejection reason:', rejectionReason);
-              navigation.navigate('RejectedAccount', { 
-                user: account,
-                rejectionReason 
-              });
-              setLoading(false);
+
+              // Update authentication state first
+              if (onLoginSuccess) {
+                onLoginSuccess();
+              }
+
+              // Navigate after a small delay to ensure state update
+              setTimeout(() => {
+                navigation.navigate('RejectedAccount', {
+                  user: account,
+                  rejectionReason
+                });
+                setLoading(false);
+              }, 100);
               return;
             }
 
@@ -141,8 +150,17 @@ const Login = ({ navigation, route, onLoginSuccess }) => {
             if (accountIsPending(account)) {
               console.log('🟡 Login - User is pending, navigating to PendingApproval');
               console.log('🟡 Login - Pending verification notes:', account.deliveryBoyInfo?.verificationNotes);
-              navigation.navigate('PendingApproval', { user: account });
-              setLoading(false);
+
+              // Update authentication state first
+              if (onLoginSuccess) {
+                onLoginSuccess();
+              }
+
+              // Navigate after a small delay to ensure state update
+              setTimeout(() => {
+                navigation.navigate('PendingApproval', { user: account });
+                setLoading(false);
+              }, 100);
               return;
             }
 
