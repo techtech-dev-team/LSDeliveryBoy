@@ -598,7 +598,12 @@ const renderStep = () => {
 };
 
   const renderPhoneStep = () => (
-    <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.content}
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
+      contentContainerStyle={{ paddingBottom: 20 }}
+    >
       <View style={styles.stepHeader}>
         <Text style={styles.stepTitle}>Phone Verification</Text>
         <Text style={styles.stepSubtitle}>
@@ -683,7 +688,12 @@ const renderStep = () => {
   );
 
   const renderBasicInfoStep = () => (
-    <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.content}
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
+      contentContainerStyle={{ paddingBottom: 20 }}
+    >
       <View style={styles.stepHeader}>
         <Text style={styles.stepTitle}>Personal Details</Text>
         <Text style={styles.stepSubtitle}>Help us know you better</Text>
@@ -829,7 +839,12 @@ const renderStep = () => {
   );
 
   const renderLocationStep = () => (
-    <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.content}
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
+      contentContainerStyle={{ paddingBottom: 20 }}
+    >
       <View style={styles.stepHeader}>
         <Text style={styles.stepTitle}>Location & Service Area</Text>
         <Text style={styles.stepSubtitle}>Set your location and service area for deliveries</Text>
@@ -1195,7 +1210,12 @@ const renderStep = () => {
   );
 
   const renderDocumentStep = () => (
-    <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.content}
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
+      contentContainerStyle={{ paddingBottom: 20 }}
+    >
       <View style={styles.stepHeader}>
         <Text style={styles.stepTitle}>Document Upload</Text>
         <Text style={styles.stepSubtitle}>Upload required documents for verification</Text>
@@ -1282,7 +1302,12 @@ const renderStep = () => {
   );
 
   const renderBankDetailsStep = () => (
-    <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.content}
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
+      contentContainerStyle={{ paddingBottom: 20 }}
+    >
       <View style={styles.stepHeader}>
         <Text style={styles.stepTitle}>Bank Details</Text>
         <Text style={styles.stepSubtitle}>Add your bank account for payments (Optional)</Text>
@@ -1352,7 +1377,12 @@ const renderStep = () => {
   );
 
   const renderIdUploadStep = () => (
-    <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.content}
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
+      contentContainerStyle={{ paddingBottom: 20 }}
+    >
       <View style={styles.stepHeader}>
         <Text style={styles.stepTitle}>Identity Verification</Text>
         <Text style={styles.stepSubtitle}>Upload your ID document</Text>
