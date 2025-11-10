@@ -270,37 +270,42 @@ const Register = ({ navigation }) => {
     return true;
   };
 
-  const handleNext = async () => {
-    if (currentStep === 1) {
-      if (validatePhoneStep()) {
-        if (verificationMethod === 'otp') {
-          setLoading(true);
-          // Mock successful phone verification
-          setTimeout(() => {
-            setLoading(false);
-            setShowOtpModal(true);
-          }, 1000);
-        } else {
-          // Password verification - skip OTP and go directly to next step
-          Alert.alert('Success', 'Phone number and password saved successfully!', [
-            {
-              text: 'Continue',
-              onPress: () => setCurrentStep(2)
-            }
-          ]);
-        }
-      }
-    } else if (currentStep === 2) {
-      if (validateBasicInfoStep()) {
-        setCurrentStep(3);
-      }
-    } else if (currentStep === 3) {
-      if (validateLocationStep()) {
-        await handleRegistration();
+const handleNext = async () => {
+  if (currentStep === 1) {
+    if (validatePhoneStep()) {
+      if (verificationMethod === 'otp') {
+        setLoading(true);
+        setTimeout(() => {
+          setLoading(false);
+          setShowOtpModal(true);
+        }, 1000);
+      } else {
+        Alert.alert('Success', 'Phone number and password saved successfully!', [
+          {
+            text: 'Continue',
+            onPress: () => setCurrentStep(2)
+          }
+        ]);
       }
     }
-  };
-
+  } else if (currentStep === 2) {
+    if (validateBasicInfoStep()) {
+      setCurrentStep(3);
+    }
+  } else if (currentStep === 3) {
+    if (validateLocationStep()) {
+      setCurrentStep(4); // Move to document upload instead of registration
+    }
+  } else if (currentStep === 4) {
+    if (validateDocumentStep()) {
+      setCurrentStep(5); // Move to bank details
+    }
+  } else if (currentStep === 5) {
+    if (validateBankDetailsStep()) {
+      await handleRegistration();
+    }
+  }
+};
   const handleOtpVerification = () => {
     if (validateOtp()) {
       setShowOtpModal(false);
@@ -575,18 +580,22 @@ const Register = ({ navigation }) => {
     );
   };
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 1:
-        return renderPhoneStep();
-      case 2:
-        return renderBasicInfoStep();
-      case 3:
-        return renderLocationStep();
-      default:
-        return renderPhoneStep();
-    }
-  };
+const renderStep = () => {
+  switch (currentStep) {
+    case 1:
+      return renderPhoneStep();
+    case 2:
+      return renderBasicInfoStep();
+    case 3:
+      return renderLocationStep();
+    case 4:
+      return renderDocumentStep();
+    case 5:
+      return renderBankDetailsStep();
+    default:
+      return renderPhoneStep();
+  }
+};
 
   const renderPhoneStep = () => (
     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -1505,15 +1514,22 @@ const Register = ({ navigation }) => {
         <View style={styles.buttonContainer}>
           {currentStep === 5 ? (
             <>
-              <TouchableOpacity 
-                style={[styles.nextButton, loading && styles.nextButtonDisabled]} 
-                onPress={handleNext}
-                disabled={loading}
-              >
-                <Text style={styles.nextButtonText}>
-                  {loading ? 'Completing Registration...' : 'Complete Registration'}
-                </Text>
-              </TouchableOpacity>
+<TouchableOpacity 
+  style={[styles.nextButton, loading && styles.nextButtonDisabled]} 
+  onPress={handleNext}
+  disabled={loading}
+>
+  <Text style={styles.nextButtonText}>
+    {loading && currentStep === 5 
+      ? 'Completing Registration...'
+      : currentStep === 1 
+        ? (verificationMethod === 'otp' ? 'Send OTP' : 'Continue with Password')
+        : currentStep === 2 ? 'Continue'
+        : currentStep === 3 ? 'Continue'
+        : currentStep === 4 ? 'Continue'
+        : 'Complete Registration'}
+  </Text>
+</TouchableOpacity>
               
               <TouchableOpacity 
                 style={[styles.nextButton, styles.skipButton]} 
